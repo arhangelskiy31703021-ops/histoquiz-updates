@@ -800,6 +800,36 @@
 }
    
     }
+  
+/* === КНОПКА: 1 / 2 СТОЛБЦА В ОПИСАНИИ === */
+.description-layout-toggle{
+  margin:0 0 14px;
+  display:flex;
+  justify-content:flex-end;
+}
+.description-layout-toggle button{
+  border:0;
+  border-radius:14px;
+  padding:10px 14px;
+  font-weight:800;
+  cursor:pointer;
+  color:var(--text);
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.10);
+}
+.description-layout-target.one-column .prep-html-grid,
+.description-layout-target.one-column .prep-description,
+.description-layout-target.one-column .desc-text > .prep-description{
+  grid-template-columns:1fr !important;
+}
+@media (max-width: 820px){
+  .description-layout-target .prep-html-grid,
+  .description-layout-target .prep-description,
+  .description-layout-target .desc-text > .prep-description{
+    grid-template-columns:1fr !important;
+  }
+}
+
   </style>
 </head>
 <body>
@@ -5298,8 +5328,34 @@ const state = {
     startPanY: 0,
     dragging: false,
   },
-  flash: null
+  flash: null,
+  descriptionColumns: 2
 };
+
+function descriptionLayoutClass() {
+  return state.descriptionColumns === 1 ? 'one-column' : '';
+}
+function descriptionLayoutButtonText() {
+  return state.descriptionColumns === 1 ? 'Сделать 2 столбца' : 'Объединить в 1 столбец';
+}
+function renderDescriptionLayoutToggle() {
+  return `
+    <div class="description-layout-toggle">
+      <button type="button" onclick="toggleDescriptionLayout()">${descriptionLayoutButtonText()}</button>
+    </div>
+  `;
+}
+function toggleDescriptionLayout() {
+  state.descriptionColumns = state.descriptionColumns === 1 ? 2 : 1;
+
+  document.querySelectorAll('.description-layout-target').forEach(el => {
+    el.classList.toggle('one-column', state.descriptionColumns === 1);
+  });
+
+  document.querySelectorAll('.description-layout-toggle button').forEach(btn => {
+    btn.textContent = descriptionLayoutButtonText();
+  });
+}
 
 function storageKeyForUser(name) {
   return `hq_prog_${name}`;
@@ -6165,8 +6221,9 @@ function openBankItem(id, selectedIndex = 0) {
         </div>
       `).join('')}
 
-      <div class="prep-description bank-show">
+      <div class="prep-description bank-show description-layout-target ${descriptionLayoutClass()}">
         <h4>Описание препарата</h4>
+        ${renderDescriptionLayoutToggle()}
         <div class="desc-text">${description}</div>
       </div>
     </div>
@@ -6497,8 +6554,9 @@ function renderTraining() {
         </div>
       </div>
       ${showDescription ? `
-        <div class="prep-description training-wide">
+        <div class="prep-description training-wide description-layout-target ${descriptionLayoutClass()}">
           <h4>Описание препарата</h4>
+          ${renderDescriptionLayoutToggle()}
           <div class="desc-text">${descriptionText}</div>
         </div>
       ` : ''}

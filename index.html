@@ -1063,6 +1063,8 @@ const state = {
   authMode: 'login',
   authLoading: true,
   authMessage: '',
+  pendingEmail: '',
+  examHistory: [],
 };
 
 const SUPABASE_URL = 'https://mxpkpwfhqjolbetpfxal.supabase.co';
@@ -1446,23 +1448,72 @@ function renderGradeButtons(kind, selectedGrade, handlerName, compact = false) {
     </div>
   `;
 }
-function getProgress() {
+function getLocalProgress() {
   if (!state.user) return {score:0, streak:0, learnedIds:[], lastStudyDate:null};
   try {
-    const raw = localStorage.getItem(storageKeyForUser(state.user.fullName));
+    const raw = localStorage.getItem(storageKeyForUser(state.user.id || state.user.fullName));
     if (raw) return JSON.parse(raw);
   } catch {}
   return {score:0, streak:0, learnedIds:[], lastStudyDate:null};
 }
-function saveProgress() {
-  if (!state.user) return;
-  localStorage.setItem(storageKeyForUser(state.user.fullName), JSON.stringify(state.progress));
-}
+function getProgress() { return getLocalProgress(); }
 function ensureProgressShape(p) {
   const base = {score:0, streak:0, learnedIds:[], lastStudyDate:null};
   const out = {...base, ...(p || {})};
-  out.learnedIds = Array.isArray(out.learnedIds) ? Array.from(new Set(out.learnedIds)) : [];
+  out.score = Number(out.score || 0);
+  out.streak = Number(out.streak || 0);
+  out.learnedIds = Array.isArray(out.learnedIds) ? Array.from(new Set(out.learnedIds.filter(Boolean))) : [];
+  out.lastStudyDate = out.lastStudyDate || null;
   return out;
+}
+function saveProgressLocal() {
+  if (!state.user) return;
+  localStorage.setItem(storageKeyForUser(state.user.id || state.user.fullName), JSON.stringify(state.progress));
+}
+async function loadProgressFromSupabase() {
+  const local = ensureProgressShape(getLocalProgress());
+  if (!supabaseClient || !state.user?.id) return local;
+  const { data, error } = await supabaseClient
+    .from('user_progress')
+    .select('score,streak,learned_ids,last_study_date')
+    .eq('user_id', state.user.id)
+    .maybeSingle();
+  if (error) {
+    console.warn('Не удалось загрузить прогресс из Supabase:', error);
+    return local;
+  }
+  if (!data) {
+    state.progress = local;
+    await saveProgressToSupabase();
+    return local;
+  }
+  return ensureProgressShape({
+    score: data.score,
+    streak: data.streak,
+    learnedIds: data.learned_ids,
+    lastStudyDate: data.last_study_date
+  });
+}
+async function saveProgressToSupabase() {
+  if (!supabaseClient || !state.user?.id || !state.progress) return;
+  const p = ensureProgressShape(state.progress);
+  const { error } = await supabaseClient
+    .from('user_progress')
+    .upsert({
+      user_id: state.user.id,
+      score: p.score,
+      streak: p.streak,
+      learned_ids: p.learnedIds,
+      last_study_date: p.lastStudyDate,
+      updated_at: new Date().toISOString()
+    });
+  if (error) console.warn('Не удалось сохранить прогресс в Supabase:', error);
+}
+function saveProgress() {
+  if (!state.user) return;
+  state.progress = ensureProgressShape(state.progress);
+  saveProgressLocal();
+  saveProgressToSupabase();
 }
 function updateStreak() {
   const today = todayKey();
@@ -1479,20 +1530,17 @@ function updateStreak() {
   state.progress.lastStudyDate = today;
 }
 function markLearned(id, points = 10) {
+  state.progress = ensureProgressShape(state.progress);
   if (!state.progress.learnedIds.includes(id)) state.progress.learnedIds.push(id);
   state.progress.score = (state.progress.score || 0) + points;
   updateStreak();
   saveProgress();
 }
-function learnedSet() {
-  return new Set(state.progress?.learnedIds || []);
-}
+function learnedSet() { return new Set(state.progress?.learnedIds || []); }
 function toggleLearned(id) {
   if (!state.progress) return;
   const set = learnedSet();
-  state.progress.learnedIds = set.has(id)
-    ? state.progress.learnedIds.filter(x => x !== id)
-    : [...state.progress.learnedIds, id];
+  state.progress.learnedIds = set.has(id) ? state.progress.learnedIds.filter(x => x !== id) : [...state.progress.learnedIds, id];
   saveProgress();
   render();
 }
@@ -1524,16 +1572,33 @@ function showView(view) {
   state.view = view;
   render();
 }
+async function findGroupByNameFromSupabase(name) {
+  const clean = String(name || '').trim();
+  if (!clean) return null;
+  const local = groupByName(clean);
+  if (local?.id) return local;
+  if (!supabaseClient) return local;
+  const { data } = await supabaseClient.from('groups').select('id,name').eq('name', clean).maybeSingle();
+  return data || local || null;
+}
 async function loadProfileForUser(authUser) {
   if (!authUser || !supabaseClient) return null;
-  const { data: profile, error } = await supabaseClient
+  const { data: profileData, error } = await supabaseClient
     .from('profiles')
     .select('id, full_name, group_id, role')
     .eq('id', authUser.id)
     .maybeSingle();
-  if (error) {
-    console.warn('Ошибка загрузки профиля:', error);
-    return null;
+  if (error) console.warn('Ошибка загрузки профиля:', error);
+  let profile = profileData || null;
+  if (!profile) {
+    const meta = authUser.user_metadata || {};
+    const fullName = meta.full_name || meta.fullName || authUser.email || 'Студент';
+    const groupName = meta.group_name || meta.group || '';
+    const group = await findGroupByNameFromSupabase(groupName);
+    const payload = { id: authUser.id, full_name: fullName, group_id: group?.id || null, role: 'student' };
+    const { error: createError } = await supabaseClient.from('profiles').upsert(payload);
+    if (createError) console.warn('Не удалось создать профиль после подтверждения email:', createError);
+    else profile = payload;
   }
   let groupName = '';
   if (profile?.group_id) {
@@ -1547,17 +1612,19 @@ async function loadProfileForUser(authUser) {
   return {
     id: authUser.id,
     email: authUser.email || '',
-    fullName: profile?.full_name || authUser.email || 'Студент',
-    group: groupName,
+    fullName: profile?.full_name || authUser.user_metadata?.full_name || authUser.email || 'Студент',
+    group: groupName || authUser.user_metadata?.group_name || '',
     groupId: profile?.group_id || null,
     role: profile?.role || 'student'
   };
 }
-function setLoggedInUser(user) {
+async function setLoggedInUser(user) {
   state.user = user;
-  state.progress = ensureProgressShape(getProgress());
   localStorage.setItem('histoquiz_user_pro', JSON.stringify(state.user));
-  saveProgress();
+  state.progress = ensureProgressShape(getLocalProgress());
+  state.progress = await loadProgressFromSupabase();
+  saveProgressLocal();
+  state.examHistory = await loadExamHistoryFromSupabase();
   state.view = 'dashboard';
 }
 async function loginStudent(email, password) {
@@ -1576,7 +1643,7 @@ async function loginStudent(email, password) {
     setAuthMessage('Аккаунт найден, но профиль студента не создан. Зарегистрируйся заново или напиши преподавателю.');
     return;
   }
-  setLoggedInUser(profileUser);
+  await setLoggedInUser(profileUser);
   state.authMessage = '';
   render();
 }
@@ -1585,7 +1652,8 @@ async function registerStudent(email, password, fullName, groupName) {
     setAuthMessage('Supabase не загрузился. Проверь интернет и обнови страницу.');
     return;
   }
-  const group = groupByName(groupName);
+  let group = groupByName(groupName);
+  if (!group || !group.id) group = await findGroupByNameFromSupabase(groupName);
   if (!group || !group.id) {
     setAuthMessage('Группа не найдена в базе. Проверь список групп.');
     return;
@@ -1600,22 +1668,40 @@ async function registerStudent(email, password, fullName, groupName) {
     setAuthMessage('Ошибка регистрации: ' + error.message);
     return;
   }
-  const user = data.user;
-  if (!user) {
-    setAuthMessage('Регистрация создана. Проверь почту для подтверждения входа.');
+  if (!data?.session) {
+    state.pendingEmail = email;
+    state.authMode = 'verify';
+    setAuthMessage('Регистрация создана. Проверь почту и введи код подтверждения. Если пришла ссылка — перейди по ссылке, затем войди с email и паролем.');
     return;
   }
-  const { error: profileError } = await supabaseClient.from('profiles').upsert({
-    id: user.id,
-    full_name: fullName,
-    group_id: group.id,
-    role: 'student'
+  const profileUser = await loadProfileForUser(data.user);
+  await setLoggedInUser(profileUser || { id: data.user.id, email, fullName, group: groupName, groupId: group.id, role: 'student' });
+  state.authMessage = '';
+  render();
+}
+
+async function verifyEmailCode(email, token) {
+  if (!supabaseClient) {
+    setAuthMessage('Supabase не загрузился. Проверь интернет и обнови страницу.');
+    return;
+  }
+  setAuthMessage('Проверяем код...');
+  const { data, error } = await supabaseClient.auth.verifyOtp({
+    email,
+    token,
+    type: 'signup'
   });
-  if (profileError) {
-    setAuthMessage('Аккаунт создан, но профиль не записался: ' + profileError.message);
+  if (error) {
+    setAuthMessage('Ошибка подтверждения: ' + error.message);
     return;
   }
-  setLoggedInUser({ id: user.id, email, fullName, group: groupName, groupId: group.id, role: 'student' });
+  const authUser = data?.user || data?.session?.user;
+  if (!authUser) {
+    setAuthMessage('Код принят, но сессия не создана. Попробуй войти email и паролем.');
+    return;
+  }
+  const profileUser = await loadProfileForUser(authUser);
+  await setLoggedInUser(profileUser);
   state.authMessage = '';
   render();
 }
@@ -1624,9 +1710,18 @@ async function handleLoginSubmit(e) {
   const form = e.currentTarget;
   const mode = form.mode.value;
   const email = form.email.value.trim();
-  const password = form.password.value;
+  const password = form.password ? form.password.value : '';
+  const token = form.token ? form.token.value.trim() : '';
   const fullName = form.fullName ? form.fullName.value.trim() : '';
   const group = form.group ? form.group.value.trim() : '';
+  if (mode === 'verify') {
+    if (!email || !token) {
+      setAuthMessage('Введите email и код подтверждения.');
+      return;
+    }
+    await verifyEmailCode(email, token);
+    return;
+  }
   if (!email || !password) {
     setAuthMessage('Введите email и пароль.');
     return;
@@ -1651,6 +1746,7 @@ async function logout() {
   localStorage.removeItem('histoquiz_user_pro');
   state.user = null;
   state.progress = null;
+  state.examHistory = [];
   state.training = null;
   state.exam = null;
   state.view = 'login';
@@ -1663,22 +1759,45 @@ function resetProgress() {
   render();
 }
 
-function examHistoryStorageKey(name) {
-  return `hq_exam_history_${name}`;
-}
-function getExamHistory() {
+function examHistoryStorageKey(name) { return `hq_exam_history_${name}`; }
+function getLocalExamHistory() {
   if (!state.user) return [];
   try {
-    const raw = localStorage.getItem(examHistoryStorageKey(state.user.fullName));
+    const raw = localStorage.getItem(examHistoryStorageKey(state.user.id || state.user.fullName));
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
+  } catch { return []; }
+}
+async function loadExamHistoryFromSupabase() {
+  const local = getLocalExamHistory();
+  if (!supabaseClient || !state.user?.id) return local;
+  const { data, error } = await supabaseClient
+    .from('exam_results')
+    .select('id, created_at, answers_json, score, total, percent, grade')
+    .eq('user_id', state.user.id)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error) {
+    console.warn('Не удалось загрузить историю экзаменов из Supabase:', error);
+    return local;
   }
+  const remote = (data || []).map(row => {
+    const rec = row.answers_json && typeof row.answers_json === 'object' ? row.answers_json : {};
+    return { ...rec, id: rec.id || row.id, finishedAt: rec.finishedAt || Date.parse(row.created_at) || Date.now(), finalMark: rec.finalMark || Number(row.grade) || 0, percent: row.percent, score: row.score, total: row.total };
+  });
+  state.examHistory = remote;
+  saveExamHistory(remote);
+  return remote;
+}
+function getExamHistory() {
+  if (Array.isArray(state.examHistory) && state.examHistory.length) return state.examHistory;
+  return getLocalExamHistory();
 }
 function saveExamHistory(list) {
   if (!state.user) return;
-  localStorage.setItem(examHistoryStorageKey(state.user.fullName), JSON.stringify(Array.isArray(list) ? list : []));
+  const clean = Array.isArray(list) ? list.slice(0, 50) : [];
+  state.examHistory = clean;
+  localStorage.setItem(examHistoryStorageKey(state.user.id || state.user.fullName), JSON.stringify(clean));
 }
 function pushExamHistory(record) {
   const history = getExamHistory();
@@ -1694,9 +1813,7 @@ async function initFromStorage() {
     if (authUser) {
       const profileUser = await loadProfileForUser(authUser);
       if (profileUser) {
-        state.user = profileUser;
-        state.progress = ensureProgressShape(getProgress());
-        state.view = 'dashboard';
+        await setLoggedInUser(profileUser);
         state.authLoading = false;
         return;
       }
@@ -1883,7 +2000,11 @@ function checkTrainingAutoNext() {
   // no-op placeholder
 }
 function finishTraining() {
+  if (!state.training) { showView('dashboard'); return; }
   state.training.done = true;
+  state.training.queue = [];
+  state.training.current = null;
+  state.training.awaitingGrade = false;
   render();
 }
 function buildExamTicket() {
@@ -2176,6 +2297,7 @@ function renderLogin() {
   document.getElementById('bottomNav').style.display = 'none';
   const mode = state.authMode || 'login';
   const isRegister = mode === 'register';
+  const isVerify = mode === 'verify';
   const message = state.authMessage ? `<div class="feedback show ${state.authMessage.includes('Ошибка') ? 'bad' : ''}"><div class="small">${safeText(state.authMessage)}</div></div>` : '';
   const groups = groupOptionsHtml();
   if (state.authLoading) {
@@ -2202,25 +2324,33 @@ function renderLogin() {
           <p>Теперь вход работает через базу данных Supabase: студент сам регистрируется, выбирает группу, проходит тест, а результат сохраняется в таблицу.</p>
           <div class="featurelist">
             <div class="feature"><div>1</div><div><b>Регистрация студента</b><span class="muted">Email, пароль, ФИО и группа.</span></div></div>
-            <div class="feature"><div>2</div><div><b>Личный прогресс</b><span class="muted">Прогресс остаётся в браузере, а экзамены сохраняются в базе.</span></div></div>
+            <div class="feature"><div>2</div><div><b>Личный прогресс</b><span class="muted">Прогресс и история синхронизируются между устройствами через Supabase.</span></div></div>
             <div class="feature"><div>3</div><div><b>Результаты в Supabase</b><span class="muted">После подтверждения итоговой оценки попытка отправляется в exam_results.</span></div></div>
           </div>
         </div>
         <div class="right">
           <div class="inline-actions" style="margin-bottom:12px">
-            <button class="${!isRegister ? 'primary' : 'ghost'}" type="button" onclick="switchAuthMode('login')">Вход</button>
+            <button class="${(!isRegister && !isVerify) ? 'primary' : 'ghost'}" type="button" onclick="switchAuthMode('login')">Вход</button>
             <button class="${isRegister ? 'primary' : 'ghost'}" type="button" onclick="switchAuthMode('register')">Регистрация</button>
+            <button class="${isVerify ? 'primary' : 'ghost'}" type="button" onclick="switchAuthMode('verify')">Код из почты</button>
           </div>
           <form class="form" onsubmit="handleLoginSubmit(event)">
-            <input type="hidden" name="mode" value="${isRegister ? 'register' : 'login'}" />
+            <input type="hidden" name="mode" value="${isVerify ? 'verify' : isRegister ? 'register' : 'login'}" />
             <div class="field">
               <label>Email</label>
               <input name="email" type="email" placeholder="student@example.com" autocomplete="email" required />
             </div>
-            <div class="field">
-              <label>Пароль</label>
-              <input name="password" type="password" placeholder="Минимум 6 символов" autocomplete="${isRegister ? 'new-password' : 'current-password'}" required />
-            </div>
+            ${isVerify ? `
+              <div class="field">
+                <label>Код подтверждения из письма</label>
+                <input name="token" inputmode="numeric" placeholder="Например: 123456" required />
+              </div>
+            ` : `
+              <div class="field">
+                <label>Пароль</label>
+                <input name="password" type="password" placeholder="Минимум 6 символов" autocomplete="${isRegister ? 'new-password' : 'current-password'}" required />
+              </div>
+            `}
             ${isRegister ? `
               <div class="field">
                 <label>Фамилия Имя Отчество</label>
@@ -2234,9 +2364,9 @@ function renderLogin() {
                 </select>
               </div>
             ` : ''}
-            <button class="primary" type="submit">${isRegister ? 'Зарегистрироваться' : 'Войти'}</button>
+            <button class="primary" type="submit">${isVerify ? 'Подтвердить код' : isRegister ? 'Зарегистрироваться' : 'Войти'}</button>
             ${message}
-            <div class="tiny">Если регистрация не проходит, проверь, что в Supabase отключено Confirm email или подтверди письмо на почте.</div>
+            <div class="tiny">Для кода в письме в Supabase Email Template должен быть {{ .Token }}. Если приходит ссылка — можно подтвердить по ссылке и затем войти паролем.</div>
           </form>
         </div>
       </div>

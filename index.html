@@ -800,6 +800,21 @@
 }
    
     }
+  
+
+/* === ФИНАЛЬНЫЙ ФИКС: все описания из Supabase показывать в 1 столбец === */
+.description-layout-toggle{ display:none !important; }
+.prep-html-grid,
+.prep-description,
+.desc-text .prep-html-grid,
+.desc-text .prep-description,
+div[style*="grid-template-columns:repeat(2"],
+div[style*="grid-template-columns: repeat(2"]{
+  grid-template-columns:1fr !important;
+}
+.prep-html-card.wide{ grid-column:auto !important; }
+.desc-text img{ max-width:100%; height:auto; }
+
   </style>
 </head>
 <body>

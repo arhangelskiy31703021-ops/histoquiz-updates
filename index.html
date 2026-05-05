@@ -5593,6 +5593,8 @@ const state = {
   authMode: 'login',
   authLoading: true,
   authMessage: '',
+  examHistory: [],
+  cloudSaving: false,
 };
 
 const SUPABASE_URL = 'https://mxpkpwfhqjolbetpfxal.supabase.co';
@@ -5984,9 +5986,29 @@ function getProgress() {
   } catch {}
   return {score:0, streak:0, learnedIds:[], lastStudyDate:null};
 }
+async function syncProgressToSupabase() {
+  if (!supabaseClient || !state.user?.id || !state.progress) return;
+  try {
+    state.cloudSaving = true;
+    const { error } = await supabaseClient
+      .from('profiles')
+      .update({
+        progress_json: state.progress,
+        progress_updated_at: new Date().toISOString()
+      })
+      .eq('id', state.user.id);
+    if (error) console.warn('Прогресс не отправился в Supabase:', error);
+  } catch (err) {
+    console.warn('Ошибка синхронизации прогресса:', err);
+  } finally {
+    state.cloudSaving = false;
+  }
+}
 function saveProgress() {
   if (!state.user) return;
   localStorage.setItem(storageKeyForUser(state.user.fullName), JSON.stringify(state.progress));
+  // Локальное сохранение остаётся как резерв, а основная синхронизация идёт в Supabase.
+  syncProgressToSupabase();
 }
 function ensureProgressShape(p) {
   const base = {score:0, streak:0, learnedIds:[], lastStudyDate:null};
@@ -6056,11 +6078,21 @@ function showView(view) {
 }
 async function loadProfileForUser(authUser) {
   if (!authUser || !supabaseClient) return null;
-  const { data: profile, error } = await supabaseClient
+  let { data: profile, error } = await supabaseClient
     .from('profiles')
-    .select('id, full_name, group_id, role')
+    .select('id, full_name, group_id, role, progress_json, progress_updated_at')
     .eq('id', authUser.id)
     .maybeSingle();
+  // Если колонка progress_json ещё не создана, сайт всё равно войдёт, но синхронизация включится после SQL-обновления.
+  if (error && String(error.message || '').includes('progress_json')) {
+    const fallback = await supabaseClient
+      .from('profiles')
+      .select('id, full_name, group_id, role')
+      .eq('id', authUser.id)
+      .maybeSingle();
+    profile = fallback.data;
+    error = fallback.error;
+  }
   if (error) {
     console.warn('Ошибка загрузки профиля:', error);
     return null;
@@ -6080,15 +6112,19 @@ async function loadProfileForUser(authUser) {
     fullName: profile?.full_name || authUser.email || 'Студент',
     group: groupName,
     groupId: profile?.group_id || null,
-    role: profile?.role || 'student'
+    role: profile?.role || 'student',
+    progressJson: profile?.progress_json || null
   };
 }
-function setLoggedInUser(user) {
+async function setLoggedInUser(user, options = {}) {
   state.user = user;
-  state.progress = ensureProgressShape(getProgress());
+  state.progress = ensureProgressShape(user?.progressJson || getProgress());
   localStorage.setItem('histoquiz_user_pro', JSON.stringify(state.user));
   saveProgress();
+  state.examHistory = await loadExamHistoryFromSupabase();
+  if (!state.examHistory.length) state.examHistory = getExamHistory();
   state.view = 'dashboard';
+  if (!options.skipRender) render();
 }
 async function loginStudent(email, password) {
   if (!supabaseClient) {
@@ -6106,7 +6142,7 @@ async function loginStudent(email, password) {
     setAuthMessage('Аккаунт найден, но профиль студента не создан. Зарегистрируйся заново или напиши преподавателю.');
     return;
   }
-  setLoggedInUser(profileUser);
+  await setLoggedInUser(profileUser);
   state.authMessage = '';
   render();
 }
@@ -6115,9 +6151,18 @@ async function registerStudent(email, password, fullName, groupName) {
     setAuthMessage('Supabase не загрузился. Проверь интернет и обнови страницу.');
     return;
   }
-  const group = groupByName(groupName);
+  let group = groupByName(groupName);
+  // Подстраховка: если список групп визуально загрузился не полностью, ищем группу прямо в Supabase по названию.
+  if ((!group || !group.id) && groupName) {
+    const { data: directGroup, error: groupError } = await supabaseClient
+      .from('groups')
+      .select('id,name')
+      .eq('name', groupName)
+      .maybeSingle();
+    if (!groupError && directGroup) group = directGroup;
+  }
   if (!group || !group.id) {
-    setAuthMessage('Группа не найдена в базе. Проверь список групп.');
+    setAuthMessage('Группа не найдена в базе. Проверь права чтения таблицы groups и список групп.');
     return;
   }
   setAuthMessage('Создаём аккаунт...');
@@ -6145,7 +6190,7 @@ async function registerStudent(email, password, fullName, groupName) {
     setAuthMessage('Аккаунт создан, но профиль не записался: ' + profileError.message);
     return;
   }
-  setLoggedInUser({ id: user.id, email, fullName, group: groupName, groupId: group.id, role: 'student' });
+  await setLoggedInUser({ id: user.id, email, fullName, group: groupName, groupId: group.id, role: 'student', progressJson: {score:0, streak:0, learnedIds:[], lastStudyDate:null} });
   state.authMessage = '';
   render();
 }
@@ -6183,6 +6228,7 @@ async function logout() {
   state.progress = null;
   state.training = null;
   state.exam = null;
+  state.examHistory = [];
   state.view = 'login';
   render();
 }
@@ -6193,11 +6239,31 @@ function resetProgress() {
   render();
 }
 
+async function loadExamHistoryFromSupabase() {
+  if (!supabaseClient || !state.user?.id) return [];
+  try {
+    const { data, error } = await supabaseClient
+      .from('exam_results')
+      .select('answers_json, created_at')
+      .eq('user_id', state.user.id)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) {
+      console.warn('История экзаменов не загрузилась из Supabase:', error);
+      return [];
+    }
+    return (data || []).map(row => row.answers_json).filter(Boolean);
+  } catch (err) {
+    console.warn('Ошибка загрузки истории экзаменов:', err);
+    return [];
+  }
+}
 function examHistoryStorageKey(name) {
   return `hq_exam_history_${name}`;
 }
 function getExamHistory() {
   if (!state.user) return [];
+  if (Array.isArray(state.examHistory) && state.examHistory.length) return state.examHistory;
   try {
     const raw = localStorage.getItem(examHistoryStorageKey(state.user.fullName));
     const parsed = raw ? JSON.parse(raw) : [];
@@ -6208,7 +6274,8 @@ function getExamHistory() {
 }
 function saveExamHistory(list) {
   if (!state.user) return;
-  localStorage.setItem(examHistoryStorageKey(state.user.fullName), JSON.stringify(Array.isArray(list) ? list : []));
+  state.examHistory = Array.isArray(list) ? list : [];
+  localStorage.setItem(examHistoryStorageKey(state.user.fullName), JSON.stringify(state.examHistory));
 }
 function pushExamHistory(record) {
   const history = getExamHistory();
@@ -6225,7 +6292,10 @@ async function initFromStorage() {
       const profileUser = await loadProfileForUser(authUser);
       if (profileUser) {
         state.user = profileUser;
-        state.progress = ensureProgressShape(getProgress());
+        state.progress = ensureProgressShape(profileUser.progressJson || getProgress());
+        localStorage.setItem('histoquiz_user_pro', JSON.stringify(state.user));
+        state.examHistory = await loadExamHistoryFromSupabase();
+        if (!state.examHistory.length) state.examHistory = getExamHistory();
         state.view = 'dashboard';
         state.authLoading = false;
         return;
@@ -6846,7 +6916,7 @@ function renderDashboard() {
           </div>
           <div class="pill-row">
             <div class="pill">SPA</div>
-            <div class="pill">localStorage</div>
+            <div class="pill">Supabase Sync</div>
             <div class="pill">Самооценка 2–5</div>
             <div class="pill">Экзамен</div>
             <div class="pill">Банк заданий</div>
@@ -7222,7 +7292,7 @@ function renderInfo() {
         <div class="panel pad mini">
           <h4>Назначение</h4>
           <p>HistoQuiz Pro Vundervaflia — локальное SPA-приложение для подготовки к коллоквиумам и экзаменам по гистологии, цитологии и эмбриологии.</p>
-          <p>Все данные хранятся внутри одного файла, а прогресс — в localStorage браузера.</p>
+          <p>Банк заданий хранится в файле сайта, а прогресс и итоговые экзамены синхронизируются через Supabase.</p>
         </div>
         <div class="panel pad mini">
           <h4>Функции</h4>

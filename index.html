@@ -1581,6 +1581,46 @@ async function findGroupByNameFromSupabase(name) {
   const { data } = await supabaseClient.from('groups').select('id,name').eq('name', clean).maybeSingle();
   return data || local || null;
 }
+
+function clearLocalUserDataFor(userObj) {
+  const keys = [];
+  if (userObj?.id) keys.push(userObj.id);
+  if (userObj?.fullName) keys.push(userObj.fullName);
+  keys.forEach(k => {
+    try {
+      localStorage.removeItem(storageKeyForUser(k));
+      localStorage.removeItem(examHistoryStorageKey(k));
+    } catch {}
+  });
+  localStorage.removeItem('histoquiz_user_pro');
+}
+async function forceAuthLogout(message = 'Доступ закрыт или сессия истекла. Войдите снова.') {
+  const oldUser = state.user;
+  clearLocalUserDataFor(oldUser);
+  if (supabaseClient) {
+    try { await supabaseClient.auth.signOut(); } catch {}
+  }
+  state.user = null;
+  state.progress = null;
+  state.examHistory = [];
+  state.training = null;
+  state.exam = null;
+  state.view = 'login';
+  state.authMode = 'login';
+  state.authLoading = false;
+  state.authMessage = message;
+  render();
+}
+async function checkCurrentUserAccess() {
+  if (!supabaseClient || !state.user?.id) return true;
+  const { data, error } = await supabaseClient.auth.getUser();
+  const authUser = data?.user || null;
+  if (error || !authUser || authUser.id !== state.user.id) {
+    await forceAuthLogout('Доступ закрыт, пользователь заблокирован или сессия истекла. Войдите снова.');
+    return false;
+  }
+  return true;
+}
 async function loadProfileForUser(authUser) {
   if (!authUser || !supabaseClient) return null;
   const { data: profileData, error } = await supabaseClient
@@ -1670,8 +1710,8 @@ async function registerStudent(email, password, fullName, groupName) {
   }
   if (!data?.session) {
     state.pendingEmail = email;
-    state.authMode = 'verify';
-    setAuthMessage('Регистрация создана. Проверь почту и введи код подтверждения. Если пришла ссылка — перейди по ссылке, затем войди с email и паролем.');
+    state.authMode = 'login';
+    setAuthMessage('Регистрация создана. Если подтверждение почты включено, подтвердите письмо и войдите email/паролем.');
     return;
   }
   const profileUser = await loadProfileForUser(data.user);
@@ -1829,7 +1869,8 @@ function cardTagByState(type, colloqId) {
   if (db[colloqId][type === 'scheme' ? 'schemes' : type].length) return {cls: 'dev', text: `${db[colloqId][type === 'scheme' ? 'schemes' : type].length} заданий`};
   return {cls:'dev', text:'В разработке'};
 }
-function startTraining(kind, colloqId) {
+async function startTraining(kind, colloqId) {
+  if (!(await checkCurrentUserAccess())) return;
   const source = itemsForTraining(kind, colloqId);
   if (!source || !source.length) {
     alert('Раздел пока пуст.');
@@ -2000,11 +2041,8 @@ function checkTrainingAutoNext() {
   // no-op placeholder
 }
 function finishTraining() {
-  if (!state.training) { showView('dashboard'); return; }
-  state.training.done = true;
-  state.training.queue = [];
-  state.training.current = null;
-  state.training.awaitingGrade = false;
+  state.training = null;
+  state.view = 'dashboard';
   render();
 }
 function buildExamTicket() {
@@ -2037,7 +2075,8 @@ function buildExamTicket() {
   return ticket;
 }
 let examTimerHandle = null;
-function startExam() {
+async function startExam() {
+  if (!(await checkCurrentUserAccess())) return;
   state.exam = {
     ticket: buildExamTicket(),
     currentIndex: 0,
@@ -2295,9 +2334,9 @@ function renderExamTimer() {
 }
 function renderLogin() {
   document.getElementById('bottomNav').style.display = 'none';
-  const mode = state.authMode || 'login';
+  const mode = state.authMode === 'register' ? 'register' : 'login';
   const isRegister = mode === 'register';
-  const isVerify = mode === 'verify';
+  const isVerify = false;
   const message = state.authMessage ? `<div class="feedback show ${state.authMessage.includes('Ошибка') ? 'bad' : ''}"><div class="small">${safeText(state.authMessage)}</div></div>` : '';
   const groups = groupOptionsHtml();
   if (state.authLoading) {
@@ -2332,7 +2371,6 @@ function renderLogin() {
           <div class="inline-actions" style="margin-bottom:12px">
             <button class="${(!isRegister && !isVerify) ? 'primary' : 'ghost'}" type="button" onclick="switchAuthMode('login')">Вход</button>
             <button class="${isRegister ? 'primary' : 'ghost'}" type="button" onclick="switchAuthMode('register')">Регистрация</button>
-            <button class="${isVerify ? 'primary' : 'ghost'}" type="button" onclick="switchAuthMode('verify')">Код из почты</button>
           </div>
           <form class="form" onsubmit="handleLoginSubmit(event)">
             <input type="hidden" name="mode" value="${isVerify ? 'verify' : isRegister ? 'register' : 'login'}" />
@@ -2366,7 +2404,6 @@ function renderLogin() {
             ` : ''}
             <button class="primary" type="submit">${isVerify ? 'Подтвердить код' : isRegister ? 'Зарегистрироваться' : 'Войти'}</button>
             ${message}
-            <div class="tiny">Для кода в письме в Supabase Email Template должен быть {{ .Token }}. Если приходит ссылка — можно подтвердить по ссылке и затем войти паролем.</div>
           </form>
         </div>
       </div>
@@ -2590,8 +2627,8 @@ function renderTraining() {
             </div>
           ` : `
             <div class="inline-actions">
-              <button class="primary" onclick="submitTrainingAnswer()">Проверить</button>
-              <button class="ghost" onclick="finishTraining()">Завершить</button>
+              <button type="button" class="primary" onclick="submitTrainingAnswer()">Проверить</button>
+              <button type="button" class="ghost" onclick="finishTraining()">Завершить</button>
             </div>
           `}
           <div class="feedback ${feedbackClass}">
@@ -2987,6 +3024,10 @@ async function initApp() {
     showDbError(error);
   }
 }
+
+setInterval(() => {
+  if (state.user?.id) checkCurrentUserAccess();
+}, 30000);
 
 initApp();
 </script>

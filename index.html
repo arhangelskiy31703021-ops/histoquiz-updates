@@ -833,6 +833,7 @@
   
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 /* =========================================================
    БЛОК 1. БАЗА ДАННЫХ (db)
@@ -5587,8 +5588,48 @@ const state = {
     startPanY: 0,
     dragging: false,
   },
-  flash: null
+  flash: null,
+  groups: [],
+  authMode: 'login',
+  authLoading: true,
+  authMessage: '',
 };
+
+const SUPABASE_URL = 'https://mxpkpwfhqjolbetpfxal.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_mpWudxtIq0sPmMZr-7ROqg_O4dFF4ah';
+const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+function fallbackGroups() {
+  return Array.from({length: 200}, (_, i) => `701-${String(i + 1).padStart(2, '0')}`);
+}
+function setAuthMessage(message) {
+  state.authMessage = message || '';
+  render();
+}
+async function loadGroupsFromSupabase() {
+  if (!supabaseClient) {
+    state.groups = fallbackGroups().map(name => ({ id: null, name }));
+    return state.groups;
+  }
+  const { data, error } = await supabaseClient
+    .from('groups')
+    .select('id,name')
+    .order('name', { ascending: true });
+  if (error || !Array.isArray(data) || !data.length) {
+    console.warn('Не удалось загрузить группы из Supabase:', error);
+    state.groups = fallbackGroups().map(name => ({ id: null, name }));
+    return state.groups;
+  }
+  state.groups = data;
+  return state.groups;
+}
+function groupOptionsHtml(selected = '') {
+  const groups = state.groups && state.groups.length ? state.groups : fallbackGroups().map(name => ({id:null, name}));
+  return groups.map(g => `<option value="${safeText(g.name)}" ${g.name === selected ? 'selected' : ''}>${safeText(g.name)}</option>`).join('');
+}
+function groupByName(name) {
+  return (state.groups || []).find(g => g.name === name) || null;
+}
 
 function storageKeyForUser(name) {
   return `hq_prog_${name}`;
@@ -6013,15 +6054,130 @@ function showView(view) {
   state.view = view;
   render();
 }
-function login(fullName, group) {
-  state.user = {fullName, group};
+async function loadProfileForUser(authUser) {
+  if (!authUser || !supabaseClient) return null;
+  const { data: profile, error } = await supabaseClient
+    .from('profiles')
+    .select('id, full_name, group_id, role')
+    .eq('id', authUser.id)
+    .maybeSingle();
+  if (error) {
+    console.warn('Ошибка загрузки профиля:', error);
+    return null;
+  }
+  let groupName = '';
+  if (profile?.group_id) {
+    const localGroup = (state.groups || []).find(g => g.id === profile.group_id);
+    if (localGroup) groupName = localGroup.name;
+    else {
+      const { data: groupData } = await supabaseClient.from('groups').select('name').eq('id', profile.group_id).maybeSingle();
+      groupName = groupData?.name || '';
+    }
+  }
+  return {
+    id: authUser.id,
+    email: authUser.email || '',
+    fullName: profile?.full_name || authUser.email || 'Студент',
+    group: groupName,
+    groupId: profile?.group_id || null,
+    role: profile?.role || 'student'
+  };
+}
+function setLoggedInUser(user) {
+  state.user = user;
   state.progress = ensureProgressShape(getProgress());
   localStorage.setItem('histoquiz_user_pro', JSON.stringify(state.user));
   saveProgress();
   state.view = 'dashboard';
+}
+async function loginStudent(email, password) {
+  if (!supabaseClient) {
+    setAuthMessage('Supabase не загрузился. Проверь интернет и обнови страницу.');
+    return;
+  }
+  setAuthMessage('Выполняется вход...');
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  if (error) {
+    setAuthMessage('Ошибка входа: ' + error.message);
+    return;
+  }
+  const profileUser = await loadProfileForUser(data.user);
+  if (!profileUser) {
+    setAuthMessage('Аккаунт найден, но профиль студента не создан. Зарегистрируйся заново или напиши преподавателю.');
+    return;
+  }
+  setLoggedInUser(profileUser);
+  state.authMessage = '';
   render();
 }
-function logout() {
+async function registerStudent(email, password, fullName, groupName) {
+  if (!supabaseClient) {
+    setAuthMessage('Supabase не загрузился. Проверь интернет и обнови страницу.');
+    return;
+  }
+  const group = groupByName(groupName);
+  if (!group || !group.id) {
+    setAuthMessage('Группа не найдена в базе. Проверь список групп.');
+    return;
+  }
+  setAuthMessage('Создаём аккаунт...');
+  const { data, error } = await supabaseClient.auth.signUp({
+    email,
+    password,
+    options: { data: { full_name: fullName, group_name: groupName } }
+  });
+  if (error) {
+    setAuthMessage('Ошибка регистрации: ' + error.message);
+    return;
+  }
+  const user = data.user;
+  if (!user) {
+    setAuthMessage('Регистрация создана. Проверь почту для подтверждения входа.');
+    return;
+  }
+  const { error: profileError } = await supabaseClient.from('profiles').upsert({
+    id: user.id,
+    full_name: fullName,
+    group_id: group.id,
+    role: 'student'
+  });
+  if (profileError) {
+    setAuthMessage('Аккаунт создан, но профиль не записался: ' + profileError.message);
+    return;
+  }
+  setLoggedInUser({ id: user.id, email, fullName, group: groupName, groupId: group.id, role: 'student' });
+  state.authMessage = '';
+  render();
+}
+async function handleLoginSubmit(e) {
+  e.preventDefault();
+  const form = e.currentTarget;
+  const mode = form.mode.value;
+  const email = form.email.value.trim();
+  const password = form.password.value;
+  const fullName = form.fullName ? form.fullName.value.trim() : '';
+  const group = form.group ? form.group.value.trim() : '';
+  if (!email || !password) {
+    setAuthMessage('Введите email и пароль.');
+    return;
+  }
+  if (mode === 'register') {
+    if (!fullName || !group) {
+      setAuthMessage('Для регистрации нужно ввести ФИО и выбрать группу.');
+      return;
+    }
+    await registerStudent(email, password, fullName, group);
+  } else {
+    await loginStudent(email, password);
+  }
+}
+function switchAuthMode(mode) {
+  state.authMode = mode;
+  state.authMessage = '';
+  render();
+}
+async function logout() {
+  if (supabaseClient) await supabaseClient.auth.signOut();
   localStorage.removeItem('histoquiz_user_pro');
   state.user = null;
   state.progress = null;
@@ -6059,14 +6215,24 @@ function pushExamHistory(record) {
   history.unshift(record);
   saveExamHistory(history.slice(0, 50));
 }
-function initFromStorage() {
-  try {
-    const raw = localStorage.getItem('histoquiz_user_pro');
-    if (!raw) return;
-    state.user = JSON.parse(raw);
-    state.progress = ensureProgressShape(getProgress());
-    state.view = 'dashboard';
-  } catch {}
+async function initFromStorage() {
+  state.authLoading = true;
+  await loadGroupsFromSupabase();
+  if (supabaseClient) {
+    const { data } = await supabaseClient.auth.getSession();
+    const authUser = data?.session?.user || null;
+    if (authUser) {
+      const profileUser = await loadProfileForUser(authUser);
+      if (profileUser) {
+        state.user = profileUser;
+        state.progress = ensureProgressShape(getProgress());
+        state.view = 'dashboard';
+        state.authLoading = false;
+        return;
+      }
+    }
+  }
+  state.authLoading = false;
 }
 function cardTagByState(type, colloqId) {
   const total = totalByType(type, colloqId);
@@ -6342,7 +6508,30 @@ function nextExamQuestion() {
     render();
   }
 }
-function finalizeExamGrades() {
+async function saveExamResultToSupabase(record) {
+  if (!supabaseClient || !state.user?.id) return;
+  const score = Array.isArray(record.grades) ? record.grades.reduce((s, v) => s + (Number(v) || 0), 0) : 0;
+  const total = Array.isArray(record.grades) ? record.grades.length * 5 : 0;
+  const percent = total ? Math.round((score / total) * 100) : 0;
+  const { error } = await supabaseClient.from('exam_results').insert({
+    user_id: state.user.id,
+    student_name: state.user.fullName || '',
+    group_name: state.user.group || '',
+    colloq: 'Экзаменационный билет',
+    score,
+    total,
+    percent,
+    grade: String(record.finalMark || ''),
+    duration_seconds: Math.max(0, Math.round(((record.finishedAt || Date.now()) - (record.startedAt || Date.now())) / 1000)),
+    answers_json: record
+  });
+  if (error) {
+    console.warn('Ошибка сохранения результата в Supabase:', error);
+    alert('Результат сохранён локально, но не отправился в базу: ' + error.message);
+  }
+}
+
+async function finalizeExamGrades() {
   const ex = state.exam;
   if (!ex || ex.finalized) return;
   ex.finalized = true;
@@ -6355,7 +6544,7 @@ function finalizeExamGrades() {
     const grade = grades[idx];
     if (item) applyGradeToProgress(item, grade);
   });
-  pushExamHistory({
+  const examRecord = {
     id: `exam_${Date.now()}`,
     startedAt: ex.startedAt,
     finishedAt: Date.now(),
@@ -6363,12 +6552,17 @@ function finalizeExamGrades() {
     avg: Number(avg.toFixed(2)),
     finalMark,
     grades,
+    studentName: state.user?.fullName || '',
+    groupName: state.user?.group || '',
     items: items.map((item, idx) => ({
       type: item.type,
       label: item.type === 'micro' ? (item.name || item.title || '') : item.type === 'scheme' ? (item.title || '') : (item.question || ''),
-      grade: grades[idx]
+      grade: grades[idx],
+      itemId: item.id || ''
     })),
-  });
+  };
+  pushExamHistory(examRecord);
+  await saveExamResultToSupabase(examRecord);
   state.exam = null;
   state.view = 'dashboard';
   render();
@@ -6508,19 +6702,22 @@ function renderExamTimer() {
   const timerEl = document.getElementById('examTimer');
   if (timerEl && state.exam && !state.exam.finished) timerEl.textContent = formatTime(remainingExamTime());
 }
-function handleLoginSubmit(e) {
-  e.preventDefault();
-  const form = e.currentTarget;
-  const fullName = form.fullName.value.trim();
-  const group = form.group.value.trim();
-  if (!fullName || !group) {
-    alert('Введите ФИО и группу.');
-    return;
-  }
-  login(fullName, group);
-}
 function renderLogin() {
   document.getElementById('bottomNav').style.display = 'none';
+  const mode = state.authMode || 'login';
+  const isRegister = mode === 'register';
+  const message = state.authMessage ? `<div class="feedback show ${state.authMessage.includes('Ошибка') ? 'bad' : ''}"><div class="small">${safeText(state.authMessage)}</div></div>` : '';
+  const groups = groupOptionsHtml();
+  if (state.authLoading) {
+    return `
+      <div class="login-wrap">
+        <div class="panel pad" style="width:min(620px,100%);text-align:center">
+          <h2>Загрузка HistoQuiz...</h2>
+          <p class="muted">Проверяем аккаунт и подключение к базе данных.</p>
+        </div>
+      </div>
+    `;
+  }
   return `
     <div class="login-wrap">
       <div class="login">
@@ -6529,28 +6726,47 @@ function renderLogin() {
             <div class="brand-badge">🔬</div>
             <div>
               <h1>HistoQuiz Pro Vundervaflia</h1>
-              <p>Веб-интерфейс для самоподготовки по гистологии, цитологии и эмбриологии</p>
+              <p>Тренировка и экзамен по гистологии с сохранением результатов</p>
             </div>
           </div>
-          <p>Акцент на активном припоминании: изображения, подписи, ответы и экзаменационный режим работают в одном локальном SPA-файле.</p>
+          <p>Теперь вход работает через базу данных Supabase: студент сам регистрируется, выбирает группу, проходит тест, а результат сохраняется в таблицу.</p>
           <div class="featurelist">
-            <div class="feature"><div>1</div><div><b>Вход без пароля</b><span class="muted">ФИО и группа привязывают прогресс к localStorage.</span></div></div>
-            <div class="feature"><div>2</div><div><b>Тренировка с возвратом ошибок</b><span class="muted">Неверные вопросы возвращаются в очередь с адаптивным интервалом.</span></div></div>
-            <div class="feature"><div>3</div><div><b>Экзамен на 90 минут</b><span class="muted">Случайный билет: 2 микропрепарата, 1 схема, 2 теории, 2 задачи.</span></div></div>
+            <div class="feature"><div>1</div><div><b>Регистрация студента</b><span class="muted">Email, пароль, ФИО и группа.</span></div></div>
+            <div class="feature"><div>2</div><div><b>Личный прогресс</b><span class="muted">Прогресс остаётся в браузере, а экзамены сохраняются в базе.</span></div></div>
+            <div class="feature"><div>3</div><div><b>Результаты в Supabase</b><span class="muted">После подтверждения итоговой оценки попытка отправляется в exam_results.</span></div></div>
           </div>
         </div>
         <div class="right">
+          <div class="inline-actions" style="margin-bottom:12px">
+            <button class="${!isRegister ? 'primary' : 'ghost'}" type="button" onclick="switchAuthMode('login')">Вход</button>
+            <button class="${isRegister ? 'primary' : 'ghost'}" type="button" onclick="switchAuthMode('register')">Регистрация</button>
+          </div>
           <form class="form" onsubmit="handleLoginSubmit(event)">
+            <input type="hidden" name="mode" value="${isRegister ? 'register' : 'login'}" />
             <div class="field">
-              <label>Фамилия Имя Отчество</label>
-              <input name="fullName" placeholder="Иванов Иван Иванович" autocomplete="name" />
+              <label>Email</label>
+              <input name="email" type="email" placeholder="student@example.com" autocomplete="email" required />
             </div>
             <div class="field">
-              <label>Учебная группа</label>
-              <input name="group" placeholder="701-16" autocomplete="off" />
+              <label>Пароль</label>
+              <input name="password" type="password" placeholder="Минимум 6 символов" autocomplete="${isRegister ? 'new-password' : 'current-password'}" required />
             </div>
-            <button class="primary" type="submit">Войти в приложение</button>
-            <div class="tiny">Без серверной части. Все данные сохраняются только в браузере.</div>
+            ${isRegister ? `
+              <div class="field">
+                <label>Фамилия Имя Отчество</label>
+                <input name="fullName" placeholder="Иванов Иван Иванович" autocomplete="name" required />
+              </div>
+              <div class="field">
+                <label>Учебная группа</label>
+                <select name="group" required>
+                  <option value="">Выберите группу</option>
+                  ${groups}
+                </select>
+              </div>
+            ` : ''}
+            <button class="primary" type="submit">${isRegister ? 'Зарегистрироваться' : 'Войти'}</button>
+            ${message}
+            <div class="tiny">Если регистрация не проходит, проверь, что в Supabase отключено Confirm email или подтверди письмо на почте.</div>
           </form>
         </div>
       </div>
@@ -7110,7 +7326,7 @@ function renderSettings() {
       </div>
       <div class="panel pad">
         <h2 style="margin-top:0">Управление данными</h2>
-        <p class="muted">Сброс удаляет только прогресс текущего пользователя. Аккаунт из localStorage можно также очистить полностью.</p>
+        <p class="muted">Сброс удаляет только локальный прогресс текущего пользователя. Аккаунт хранится в Supabase; выход завершает сессию на этом устройстве.</p>
         <div class="inline-actions">
           <button class="danger" onclick="if(confirm('Сбросить прогресс текущего пользователя?')) resetProgress()">Сбросить прогресс</button>
           <button class="ghost" onclick="if(confirm('Выйти из аккаунта?')) logout()">Выйти</button>
@@ -7120,6 +7336,7 @@ function renderSettings() {
           <h4>Текущий профиль</h4>
           <p>ФИО: <strong>${safeText(state.user?.fullName || '')}</strong></p>
           <p>Группа: <strong>${safeText(state.user?.group || '')}</strong></p>
+          <p>Email: <strong>${safeText(state.user?.email || '—')}</strong></p>
           <p>Ключ прогресса: <span class="tiny">${safeText(storageKeyForUser(state.user?.fullName || ''))}</span></p>
         </div>
       </div>
@@ -7160,8 +7377,7 @@ function render() {
     });
   }
 }
-initFromStorage();
-render();
+initFromStorage().then(render);
 </script>
 </body>
 </html>

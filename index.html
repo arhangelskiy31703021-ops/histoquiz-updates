@@ -816,18 +816,114 @@ div[style*="grid-template-columns: repeat(2"]{
 .desc-text img{ max-width:100%; height:auto; }
 
 
-/* === Конспекты: карточки 1/2 семестр === */
-.notes-layout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start;}
-.notes-semester{padding:18px;border-radius:24px;background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.025));border:1px solid rgba(255,255,255,.08);box-shadow:0 12px 30px rgba(0,0,0,.18);}
-.notes-semester h3{margin:0 0 12px;font-size:22px;}
-.notes-list{display:grid;gap:10px;}
-.note-card{padding:14px;border-radius:18px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08);}
-.note-card h4{margin:0 0 6px;font-size:16px;line-height:1.25;color:var(--text);}
-.note-card p{margin:0;color:var(--muted);font-size:13px;line-height:1.45;}
-.note-card .inline-actions{margin-top:10px;}
-.note-content{margin-top:14px;padding:16px;border-radius:22px;background:linear-gradient(180deg, rgba(177,124,255,.11), rgba(255,255,255,.04));border:1px solid rgba(177,124,255,.18);line-height:1.65;color:var(--soft);}
+/* === Конспекты: красивый список в один столбец === */
+.notes-hero{
+  margin-bottom:16px;
+  padding:18px;
+  border-radius:26px;
+  background:
+    radial-gradient(circle at 18% 10%, rgba(177,124,255,.22), transparent 34%),
+    linear-gradient(180deg, rgba(48,28,78,.92), rgba(21,13,34,.92));
+  border:1px solid rgba(177,124,255,.20);
+  box-shadow:0 14px 34px rgba(0,0,0,.22);
+}
+.notes-hero h3{margin:0 0 8px;font-size:24px;line-height:1.15;}
+.notes-hero p{margin:0;color:var(--muted);line-height:1.55;}
+.notes-layout{
+  display:grid;
+  grid-template-columns:1fr !important;
+  gap:16px;
+  align-items:start;
+}
+.notes-semester{
+  padding:18px;
+  border-radius:26px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.025));
+  border:1px solid rgba(255,255,255,.08);
+  box-shadow:0 12px 30px rgba(0,0,0,.18);
+}
+.notes-semester h3{
+  margin:0 0 14px;
+  font-size:22px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.notes-list{
+  display:grid;
+  grid-template-columns:1fr !important;
+  gap:10px;
+}
+.note-card{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  gap:14px;
+  align-items:center;
+  padding:14px;
+  border-radius:20px;
+  background:rgba(255,255,255,.045);
+  border:1px solid rgba(255,255,255,.08);
+  transition:.18s ease;
+}
+.note-card:hover{
+  transform:translateY(-1px);
+  border-color:rgba(177,124,255,.30);
+  background:rgba(177,124,255,.075);
+}
+.note-num{
+  width:38px;
+  height:38px;
+  border-radius:14px;
+  display:grid;
+  place-items:center;
+  font-weight:900;
+  color:#fff;
+  background:linear-gradient(135deg, var(--accent), var(--accent2));
+  box-shadow:0 10px 22px rgba(125,76,255,.22);
+}
+.note-main h4{
+  margin:0 0 6px;
+  font-size:16px;
+  line-height:1.25;
+  color:var(--text);
+}
+.note-meta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+}
+.note-chip{
+  padding:5px 9px;
+  border-radius:999px;
+  font-size:11px;
+  color:var(--soft);
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.08);
+}
+.note-chip.empty{
+  color:#ffe0a7;
+  background:rgba(255,202,115,.11);
+  border-color:rgba(255,202,115,.18);
+}
+.note-card .inline-actions{margin:0;}
+.note-card .ghost{padding:10px 12px;border-radius:14px;white-space:nowrap;}
+.note-content{
+  margin-top:16px;
+  padding:18px;
+  border-radius:24px;
+  background:linear-gradient(180deg, rgba(177,124,255,.11), rgba(255,255,255,.04));
+  border:1px solid rgba(177,124,255,.18);
+  line-height:1.65;
+  color:var(--soft);
+}
 .note-content h3,.note-content h4{color:var(--text);margin-top:0;}
-@media (max-width: 820px){.notes-layout{grid-template-columns:1fr;}}
+@media (max-width: 820px){
+  .note-card{grid-template-columns:auto 1fr;}
+  .note-card .inline-actions{grid-column:1 / -1;}
+  .note-card .ghost{width:100%;}
+}
 
   </style>
 </head>
@@ -2802,14 +2898,20 @@ const summaryTopics = [
 ];
 let activeSummaryTitle = '';
 
-function renderSummaryTopicCard(topic) {
+function renderSummaryTopicCard(topic, index = 0) {
   const hasContent = String(topic.content || '').trim().length > 0;
   return `
     <div class="note-card">
-      <h4>${safeText(topic.title)}</h4>
-      <p>${safeText(topic.category)} · ${hasContent ? 'конспект добавлен' : 'конспект пока не добавлен'}</p>
+      <div class="note-num">${String(index + 1).padStart(2, '0')}</div>
+      <div class="note-main">
+        <h4>${safeText(topic.title)}</h4>
+        <div class="note-meta">
+          <span class="note-chip">${safeText(topic.category)}</span>
+          <span class="note-chip ${hasContent ? '' : 'empty'}">${hasContent ? 'конспект добавлен' : 'пока пусто'}</span>
+        </div>
+      </div>
       <div class="inline-actions">
-        <button class="ghost" onclick="openSummaryTopic('${safeText(topic.title)}')">Открыть конспект</button>
+        <button class="ghost" onclick="openSummaryTopic('${safeText(topic.title)}')">Открыть</button>
       </div>
     </div>
   `;
@@ -2837,14 +2939,18 @@ function renderNotesBank() {
   const first = summaryTopics.filter(t => t.semester === 1);
   const second = summaryTopics.filter(t => t.semester === 2);
   return `
+    <div class="notes-hero">
+      <h3>Конспекты по темам</h3>
+      <p>Здесь будет быстрый учебный маршрут по 1 и 2 семестру: ключевые моменты, краткая теория, частые вопросы и шаблон ответа. Пока темы готовы как каркас для заполнения.</p>
+    </div>
     <div class="notes-layout">
       <div class="notes-semester">
-        <h3>1 семестр</h3>
-        <div class="notes-list">${first.map(renderSummaryTopicCard).join('')}</div>
+        <h3>📘 1 семестр</h3>
+        <div class="notes-list">${first.map((topic, index) => renderSummaryTopicCard(topic, index)).join('')}</div>
       </div>
       <div class="notes-semester">
-        <h3>2 семестр</h3>
-        <div class="notes-list">${second.map(renderSummaryTopicCard).join('')}</div>
+        <h3>📗 2 семестр</h3>
+        <div class="notes-list">${second.map((topic, index) => renderSummaryTopicCard(topic, index)).join('')}</div>
       </div>
     </div>
     ${renderSummaryContent()}

@@ -1035,13 +1035,17 @@ async function sbSelect(table, query = "*") {
 }
 
 async function loadDbFromSupabase() {
-  const [colloquiums, preparations, variants, schemes, theory, tasks] = await Promise.all([
+  const [colloquiums, preparations, variants, schemes, theory, tasks, summaries] = await Promise.all([
     sbSelect("colloquiums"),
     sbSelect("preparations"),
     sbSelect("preparation_variants"),
     sbSelect("schemes"),
     sbSelect("theory_questions"),
-    sbSelect("tasks")
+    sbSelect("tasks"),
+    sbSelect("summaries").catch((error) => {
+      console.warn("Таблица summaries пока не загрузилась:", error);
+      return [];
+    })
   ]);
 
   const nextDb = {};
@@ -1137,6 +1141,33 @@ async function loadDbFromSupabase() {
         requiresManualCheck: !!task.requires_manual_check
       });
     });
+
+  // Конспекты из Supabase: обновляем карточки во вкладке "Конспекты".
+  // Если тема уже есть в HTML-каркасе — подставляем content из public.summaries.
+  // Если темы нет в HTML — добавляем новую карточку.
+  if (Array.isArray(summaries) && typeof summaryTopics !== "undefined") {
+    summaries
+      .sort((a, b) => (a.semester || 0) - (b.semester || 0) || (a.order_index || 0) - (b.order_index || 0))
+      .forEach((s) => {
+        const title = String(s.title || "").trim();
+        if (!title) return;
+        const existing = summaryTopics.find(t => t.title === title || t.id === s.id);
+        const item = {
+          id: s.id,
+          semester: Number(s.semester || 2),
+          colloq: s.colloq || null,
+          title,
+          category: s.category || "Конспект",
+          content: s.content || "",
+          order_index: s.order_index || 0
+        };
+        if (existing) {
+          Object.assign(existing, item);
+        } else {
+          summaryTopics.push(item);
+        }
+      });
+  }
 
   db = nextDb;
   return db;

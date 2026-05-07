@@ -1,0 +1,3436 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HistoQuiz Pro Vundervaflia</title>
+  <style>
+    :root{
+      --bg:#120a1e;
+      --bg2:#1a102a;
+      --card:#221436cc;
+      --card2:#2b1745;
+      --line:#6d4da8;
+      --line2:#8f67d8;
+      --text:#f4ecff;
+      --muted:#c7b4e7;
+      --soft:#d7c9ef;
+      --accent:#b17cff;
+      --accent2:#8d5ef3;
+      --danger:#ef5b7d;
+      --success:#4ed6a8;
+      --warning:#ffca73;
+      --shadow: 0 18px 45px rgba(0,0,0,.35);
+      --radius: 24px;
+      --radius-sm: 16px;
+      --max: 1260px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(177,124,255,.18), transparent 20%),
+        radial-gradient(circle at 80% 0%, rgba(142,96,243,.15), transparent 24%),
+        linear-gradient(180deg, #0d0716 0%, #1a1028 100%);
+      color:var(--text);
+      overflow-x:hidden;
+    }
+    a{color:inherit}
+    button,input,select,textarea{font:inherit}
+    .app{
+      min-height:auto;
+      display:flex;
+      flex-direction:column;
+    }
+    .shell{
+      width:min(var(--max), calc(100% - 24px));
+      margin:0 auto;
+      padding:20px 0 96px;
+      flex:1;
+    }
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:16px 18px;
+      background:linear-gradient(180deg, rgba(45,23,71,.8), rgba(25,14,39,.8));
+      border:1px solid rgba(173,134,255,.18);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+      margin-bottom:16px;
+      position:sticky;
+      top:12px;
+      z-index:20;
+    }
+    .brand{
+      display:flex;align-items:center;gap:12px;min-width:0;
+    }
+    .brand-badge{
+      width:46px;height:46px;border-radius:16px;
+      background:linear-gradient(145deg, var(--accent), #6a36d5);
+      display:grid;place-items:center;font-size:22px;box-shadow:0 10px 25px rgba(130,73,255,.35)
+    }
+    .brand h1{margin:0;font-size:18px;line-height:1.1}
+    .brand p{margin:2px 0 0;color:var(--muted);font-size:12px}
+    .userchip{
+      display:flex;align-items:center;gap:10px;
+      padding:10px 14px;border-radius:999px;
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.08);
+      color:var(--soft);
+      white-space:nowrap;
+      max-width:45%;
+      overflow:hidden;text-overflow:ellipsis;
+    }
+    .userchip strong{color:var(--text)}
+    .hero{
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap:16px;
+      margin-bottom:16px;
+    }
+    .panel{
+      background:linear-gradient(180deg, rgba(44,26,69,.9), rgba(24,15,38,.86));
+      border:1px solid rgba(177,124,255,.16);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .panel.pad{padding:18px}
+    .stats{
+      display:grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap:12px;
+    }
+    .stat{
+      padding:16px;
+      border-radius:22px;
+      background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border:1px solid rgba(255,255,255,.06);
+    }
+    .stat .label{font-size:12px;color:var(--muted);margin-bottom:10px}
+    .stat .value{font-size:26px;font-weight:800;letter-spacing:-.03em}
+    .stat .hint{margin-top:8px;font-size:12px;color:var(--soft)}
+    .status-card{
+      padding:18px;
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+      gap:14px;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(177,124,255,.15), transparent 28%),
+        linear-gradient(180deg, rgba(43,23,69,.92), rgba(19,12,31,.94));
+    }
+    .status-card h2{margin:0 0 8px;font-size:22px}
+    .status-card p{margin:0;color:var(--muted);line-height:1.55}
+    .pill-row{display:flex;flex-wrap:wrap;gap:8px}
+    .pill{
+      padding:8px 12px;border-radius:999px;
+      background:rgba(255,255,255,.07);
+      border:1px solid rgba(255,255,255,.08);
+      color:var(--soft);
+      font-size:12px;
+    }
+    .section-tabs{
+      display:flex;flex-wrap:wrap;gap:10px;
+      margin:14px 0 16px;
+    }
+    .tab{
+      border:0;
+      color:var(--text);
+      background:rgba(255,255,255,.06);
+      padding:12px 16px;
+      border-radius:999px;
+      cursor:pointer;
+      border:1px solid rgba(255,255,255,.08);
+      transition:.2s ease;
+    }
+    .tab.active{
+      background:linear-gradient(135deg, var(--accent), var(--accent2));
+      box-shadow:0 12px 25px rgba(125,76,255,.3);
+      border-color:transparent;
+    }
+    .section-head{
+      display:flex;justify-content:space-between;align-items:end;gap:12px;
+      margin:10px 2px 14px;
+    }
+    .section-head h3{margin:0;font-size:20px}
+    .section-head .sub{color:var(--muted);font-size:13px}
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:14px;
+    }
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.025));
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:24px;
+      padding:16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.18);
+      overflow:hidden;
+      position:relative;
+    }
+    .card.clickable{cursor:pointer;transition:.18s ease}
+    .card.clickable:hover{transform:translateY(-2px);border-color:rgba(177,124,255,.35)}
+    .card h4{margin:0 0 8px;font-size:17px;line-height:1.25}
+    .card p{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
+    .card-top{
+      display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;
+    }
+    .badge{
+      padding:6px 10px;border-radius:999px;font-size:11px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.08);
+      color:var(--soft);
+      white-space:nowrap;
+    }
+    .badge.good{background:rgba(78,214,168,.14);color:#9bf1d2;border-color:rgba(78,214,168,.2)}
+    .badge.warn{background:rgba(255,202,115,.14);color:#ffe0a7;border-color:rgba(255,202,115,.22)}
+    .badge.dev{background:rgba(177,124,255,.12);color:#d8bcff;border-color:rgba(177,124,255,.18)}
+    .progress{
+      height:10px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden;margin:14px 0 8px;
+      border:1px solid rgba(255,255,255,.06);
+    }
+    .progress > span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg, var(--accent), var(--success))}
+    .meta{
+      display:flex;justify-content:space-between;gap:10px;
+      color:var(--soft);font-size:12px;
+    }
+    .bottom-nav{
+      padding:12px 0 2px;
+      margin-top:18px;
+    }
+    .bottom-nav .wrap{
+      width:min(var(--max), calc(100% - 24px));
+      margin:0 auto;
+      display:grid;
+      grid-template-columns: 1.2fr 1fr 1fr 1fr;
+      gap:10px;
+    }
+    .navbtn{
+      border:0;
+      color:var(--text);
+      padding:14px 14px;
+      border-radius:18px;
+      cursor:pointer;
+      box-shadow: var(--shadow);
+      border:1px solid rgba(255,255,255,.08);
+      transition:.2s ease;
+      min-height:52px;
+      font-weight:700;
+    }
+    .navbtn:hover{transform:translateY(-1px)}
+    .navbtn.red{background:linear-gradient(135deg, #ff5a7b, #d63b59)}
+    .navbtn.purple{background:linear-gradient(135deg, #9f74ff, #7141df)}
+    .navbtn.gray{background:linear-gradient(135deg, #4f4a5d, #353041)}
+    .navbtn.full{grid-column: span 1}
+    .login-wrap{
+      min-height:100vh;
+      display:grid;
+      place-items:center;
+      padding:20px;
+    }
+    .login{
+      width:min(920px, 100%);
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:16px;
+    }
+    .login .left{
+      padding:28px;
+      background:
+        radial-gradient(circle at 30% 20%, rgba(177,124,255,.17), transparent 25%),
+        linear-gradient(180deg, rgba(42,22,67,.95), rgba(18,11,31,.95));
+      border-radius:30px;
+      border:1px solid rgba(177,124,255,.18);
+      box-shadow: var(--shadow);
+    }
+    .login .left h1{margin:6px 0 10px;font-size:34px;line-height:1.05}
+    .login .left p{margin:0;color:var(--muted);line-height:1.6}
+    .featurelist{
+      margin-top:18px;display:grid;gap:10px
+    }
+    .feature{
+      display:flex;gap:10px;align-items:flex-start;
+      padding:12px 14px;border-radius:18px;
+      background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.06)
+    }
+    .feature b{display:block;margin-bottom:2px}
+    .login .right{
+      padding:24px;
+      background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.03));
+      border-radius:30px;
+      border:1px solid rgba(255,255,255,.08);
+      box-shadow: var(--shadow);
+      display:flex;flex-direction:column;justify-content:center;
+    }
+    .form{
+      display:grid;gap:12px;
+    }
+    .field label{display:block;font-size:12px;color:var(--muted);margin:0 0 7px 2px}
+    .field input, .field select, .field textarea{
+      width:100%;
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(13,7,22,.55);
+      color:var(--text);
+      padding:14px 14px;
+      outline:none;
+      transition:.2s ease;
+    }
+    .field textarea{min-height:120px;resize:vertical}
+    .field input:focus, .field select:focus, .field textarea:focus{
+      border-color:rgba(177,124,255,.5);
+      box-shadow:0 0 0 4px rgba(177,124,255,.12)
+    }
+    .primary, .ghost, .danger, .success-btn{
+      border:0;
+      border-radius:16px;
+      padding:13px 15px;
+      font-weight:800;
+      cursor:pointer;
+      transition:.2s ease;
+      color:var(--text);
+    }
+    .primary{background:linear-gradient(135deg, var(--accent), var(--accent2));}
+    .ghost{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.08)}
+    .danger{background:linear-gradient(135deg, #ff6a86, #d83b5f)}
+    .success-btn{background:linear-gradient(135deg, #52d5a8, #2fad7f)}
+    .inline-actions{display:flex;flex-wrap:wrap;gap:10px}
+    .muted{color:var(--muted)}
+    .screen{display:none}
+    .screen.active{display:block}
+    .backline{
+      display:flex;align-items:center;gap:10px;margin-bottom:14px
+    }
+    .backline button{padding:10px 14px;border-radius:14px}
+    .training-layout{
+      display:grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap:16px;
+    }
+    .media-box{
+      padding:16px;
+    }
+    .media{
+      position:relative;
+      border-radius:24px;
+      overflow:hidden;
+      background:#150d22;
+      border:1px solid rgba(255,255,255,.08);
+      min-height: 420px;
+      display:grid;
+      place-items:center;
+    }
+    .media img, .media svg{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
+      cursor:pointer;
+      user-select:none;
+    }
+    .media-note{
+      position:absolute;
+      left:12px;top:12px;
+      padding:8px 10px;
+      border-radius:999px;
+      background:rgba(13,7,22,.66);
+      border:1px solid rgba(255,255,255,.08);
+      font-size:12px;
+    }
+    .qa{
+      padding:18px;
+      display:grid;
+      gap:14px;
+    }
+    .prompt{
+      padding:16px;
+      border-radius:20px;
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.06);
+    }
+    .prompt h3{margin:0 0 8px;font-size:20px}
+    .prompt p{margin:0;color:var(--muted);line-height:1.5}
+    .feedback{
+      padding:14px 16px;
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,.08);
+      background:rgba(255,255,255,.04);
+      display:none;
+    }
+    .feedback.show{display:block}
+    .feedback.ok{border-color:rgba(78,214,168,.25);background:rgba(78,214,168,.08)}
+    .feedback.bad{border-color:rgba(239,91,125,.25);background:rgba(239,91,125,.08)}
+    .feedback .title{font-weight:800;margin-bottom:8px}
+    .feedback .small{font-size:13px;color:var(--soft);line-height:1.45}
+    .prep-description{
+      display:none;
+      padding:16px;
+      border-radius:20px;
+      background:linear-gradient(180deg, rgba(177,124,255,.12), rgba(255,255,255,.04));
+      border:1px solid rgba(177,124,255,.20);
+      box-shadow:0 12px 26px rgba(0,0,0,.18);
+    }
+    .prep-description.show{display:block}
+    .prep-description h4{
+      margin:0 0 10px;
+      font-size:16px;
+      line-height:1.25;
+    }
+    .prep-description .desc-text{
+      color:var(--soft);
+      font-size:13px;
+      line-height:1.55;
+      white-space:normal;
+    }
+    .prep-html-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:18px;
+      line-height:1.65;
+      font-size:15px;
+      color:var(--soft);
+    }
+    .prep-html-card{
+      background:rgba(255,255,255,.045);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:22px;
+      padding:18px;
+    }
+    .prep-html-card.wide{grid-column:1 / -1}
+    .prep-html-card h2{margin:0 0 12px;color:var(--text);font-size:24px;line-height:1.2}
+    .prep-html-card h3{margin:18px 0 10px;color:var(--text);font-size:18px;line-height:1.25}
+    .prep-html-card p{margin:0 0 12px}
+    .prep-html-card b{color:var(--text)}
+    .scheme-grid{
+      display:grid; gap:12px; grid-template-columns: repeat(auto-fit,minmax(140px,1fr));
+    }
+    .scheme-grid .field input{padding:12px}
+
+    .prep-modal-body{
+      flex:1;
+      overflow:auto;
+      padding:16px;
+      background:radial-gradient(circle at 50% 20%, rgba(177,124,255,.08), transparent 35%);
+    }
+    .prep-detail-layout{
+      display:grid;
+      gap:16px;
+      align-items:start;
+    }
+    .prep-detail-img{
+      width:100%;
+      max-height:64vh;
+      object-fit:contain;
+      display:block;
+      border-radius:24px;
+      background:#120c1b;
+      border:1px solid rgba(255,255,255,.08);
+    }
+    .prep-detail-side{
+      display:grid;
+      gap:12px;
+    }
+    .prep-description.bank-show{
+      display:block;
+      margin-top:0;
+      width:100%;
+    }
+    .prep-description.training-wide{
+      display:block;
+      margin-top:16px;
+      width:100%;
+    }
+    .prep-variant-full{
+      width:100%;
+      padding:16px;
+      border-radius:26px;
+      background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.025));
+      border:1px solid rgba(177,124,255,.18);
+      box-shadow:0 14px 34px rgba(0,0,0,.24);
+    }
+    .prep-variant-full h3{
+      margin:0 0 12px;
+      font-size:18px;
+    }
+    .prep-variant-full img{
+      width:100%;
+      height:min(78vh, 820px);
+      object-fit:contain;
+      display:block;
+      border-radius:24px;
+      background:#120c1b;
+      border:1px solid rgba(255,255,255,.08);
+    }
+
+    .fullscreen-img-modal{
+      position:fixed;
+      inset:0;
+      z-index:80;
+      display:none;
+      background:rgba(5,3,8,.92);
+      backdrop-filter: blur(8px);
+      padding:18px;
+    }
+    .fullscreen-img-modal.open{display:grid;place-items:center}
+    .fullscreen-img-wrap{
+      width:100%;
+      height:100%;
+      display:grid;
+      place-items:center;
+      position:relative;
+    }
+    .fullscreen-img-wrap img{
+      max-width:96vw;
+      max-height:92vh;
+      object-fit:contain;
+      border-radius:22px;
+      background:#120c1b;
+      border:1px solid rgba(255,255,255,.12);
+      box-shadow:0 18px 55px rgba(0,0,0,.55);
+    }
+    .fullscreen-close{
+      position:fixed;
+      right:22px;
+      top:18px;
+      z-index:82;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.12);
+      color:var(--text);
+      border-radius:16px;
+      padding:12px 15px;
+      cursor:pointer;
+      font-weight:900;
+      backdrop-filter: blur(10px);
+    }
+    .fullscreen-caption{
+      position:fixed;
+      left:22px;
+      bottom:18px;
+      z-index:82;
+      max-width:min(760px, calc(100vw - 44px));
+      padding:10px 12px;
+      border-radius:999px;
+      background:rgba(13,7,22,.66);
+      border:1px solid rgba(255,255,255,.10);
+      color:var(--soft);
+      font-size:13px;
+    }
+    .fullscreen-trigger{cursor:zoom-in}
+
+    .variant-grid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap:10px;
+    }
+    .variant-card{
+      border:1px solid rgba(255,255,255,.08);
+      background:rgba(255,255,255,.04);
+      border-radius:18px;
+      padding:10px;
+      cursor:pointer;
+      transition:.18s ease;
+    }
+    .variant-card:hover{border-color:rgba(177,124,255,.35);transform:translateY(-1px)}
+    .variant-card.active{border-color:rgba(177,124,255,.55);background:rgba(177,124,255,.12)}
+    .variant-card img{
+      width:100%;
+      aspect-ratio:16/10;
+      object-fit:cover;
+      border-radius:14px;
+      display:block;
+      background:#120c1b;
+    }
+    .variant-card .v-title{margin-top:8px;font-size:12px;color:var(--soft);font-weight:800}
+    .all-preps-grid{
+      display:grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap:10px;
+      margin-top:12px;
+      max-height:420px;
+      overflow:auto;
+      padding-right:4px;
+    }
+    .all-prep-card{
+      border:1px solid rgba(255,255,255,.08);
+      background:rgba(255,255,255,.04);
+      border-radius:18px;
+      padding:10px;
+      cursor:pointer;
+      transition:.18s ease;
+    }
+    .all-prep-card:hover{border-color:rgba(177,124,255,.35);transform:translateY(-1px)}
+    .all-prep-card.active{border-color:rgba(78,214,168,.40);background:rgba(78,214,168,.08)}
+    .all-prep-card img{
+      width:100%;
+      aspect-ratio:16/9;
+      object-fit:cover;
+      border-radius:14px;
+      display:block;
+      background:#120c1b;
+    }
+    .all-prep-card .prep-name{margin-top:8px;font-size:13px;font-weight:900;color:var(--text);line-height:1.25}
+    .all-prep-card .prep-meta{margin-top:4px;font-size:11px;color:var(--muted);line-height:1.25}
+    @media (max-width: 820px){
+      .prep-detail-img{max-height:52vh}
+      .all-preps-grid{max-height:360px}
+    }
+
+    .bank-toolbar{
+      display:flex;gap:10px;flex-wrap:wrap;align-items:center;
+      margin-bottom:14px;
+    }
+    .bank-toolbar .tab{padding:10px 14px}
+    .bank-grid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap:14px;
+    }
+    .bank-card{
+      background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.025));
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:22px;
+      overflow:hidden;
+    }
+    .bank-card .thumb{
+      width:100%;
+      aspect-ratio: 16/10;
+      background:#120c1b;
+      display:block;
+      object-fit:cover;
+      cursor:pointer;
+    }
+    .bank-card .content{padding:14px}
+    .bank-card .content h4{margin:0 0 6px;font-size:16px}
+    .bank-card .content p{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
+    .bank-card .content .row{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}
+    .list{
+      display:grid;gap:12px
+    }
+    .info-grid{display:grid;gap:14px;grid-template-columns:repeat(2,minmax(0,1fr))}
+    .mini{
+      padding:16px;border-radius:22px;background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.06);
+    }
+    .mini h4{margin:0 0 8px}
+    .mini p,.mini li{color:var(--muted);line-height:1.55}
+    .mini ul{margin:0;padding-left:20px}
+    .modal{
+      position:fixed;inset:0;z-index:50;
+      display:none;
+      background:rgba(5,3,8,.76);
+      backdrop-filter: blur(10px);
+    }
+    .modal.open{display:grid;place-items:center}
+    .modal-panel{
+      width:min(1200px, calc(100% - 18px));
+      height:min(92vh, 940px);
+      background:linear-gradient(180deg, rgba(32,18,50,.95), rgba(11,7,16,.97));
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:28px;
+      box-shadow:var(--shadow);
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+    }
+    .modal-head{
+      display:flex;justify-content:space-between;align-items:center;
+      gap:10px;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.08)
+    }
+    .modal-head h3{margin:0;font-size:16px}
+    .modal-body{
+      flex:1;
+      position:relative;
+      overflow:hidden;
+      display:grid;
+      place-items:center;
+      touch-action:none;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(177,124,255,.07), transparent 42%);
+    }
+    .zoom-stage{
+      position:relative;
+      width:100%;
+      height:100%;
+      display:grid;
+      place-items:center;
+    }
+    .zoom-img{
+      max-width:none;
+      max-height:none;
+      transform-origin:center center;
+      user-select:none;
+      touch-action:none;
+      cursor:grab;
+      filter:saturate(1.08) contrast(1.02);
+    }
+    .zoom-controls{
+      position:absolute;
+      right:16px;
+      bottom:16px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      z-index:2;
+    }
+    .zoom-controls button{
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.12);
+      color:var(--text);
+      border-radius:14px;
+      padding:10px 13px;
+      backdrop-filter: blur(10px);
+      cursor:pointer;
+      font-weight:800;
+    }
+    .zoom-caption{
+      position:absolute;
+      left:16px;bottom:16px;
+      padding:8px 10px;border-radius:999px;
+      background:rgba(13,7,22,.55);
+      border:1px solid rgba(255,255,255,.08);
+      z-index:2;
+      font-size:12px;color:var(--soft)
+    }
+    .timer{
+      font-variant-numeric: tabular-nums;
+      font-weight:900;
+      letter-spacing:.04em;
+      color:#ffe7a8;
+    }
+    .results{
+      display:grid;gap:12px
+    }
+    .result-row{
+      display:flex;justify-content:space-between;gap:10px;
+      padding:12px 14px;border-radius:18px;background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.06);
+    }
+    .result-row.ok{border-color:rgba(78,214,168,.22);background:rgba(78,214,168,.06)}
+    .result-row.bad{border-color:rgba(239,91,125,.22);background:rgba(239,91,125,.06)}
+    .grade-panel{
+      margin-top:10px;
+      padding:12px 14px;
+      border-radius:20px;
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.06);
+    }
+    .grade-panel .label{font-size:12px;color:var(--muted);margin-bottom:10px}
+    .grade-buttons{display:flex;flex-wrap:wrap;gap:8px}
+    .grade-btn{
+      min-width:42px;
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.07);
+      color:var(--text);
+      font-weight:800;
+      cursor:pointer;
+    }
+    .grade-btn.active{
+      background:linear-gradient(135deg, var(--accent), var(--accent2));
+      border-color:transparent;
+      box-shadow:0 10px 22px rgba(125,76,255,.22);
+    }
+    .grade-suggest{
+      margin-top:8px;
+      color:var(--soft);
+      font-size:13px;
+      line-height:1.45;
+    }
+    .tiny{font-size:12px;color:var(--muted)}
+    @media (max-width: 1024px){
+      .hero,.training-layout,.login,.info-grid,.bank-grid,.grid{grid-template-columns:1fr 1fr}
+      .grid{grid-template-columns:1fr 1fr}
+    }
+    @media (max-width: 820px){
+      .hero,.training-layout,.login,.info-grid,.bank-grid,.grid{grid-template-columns:1fr}
+      .topbar{position:relative;top:auto}
+      .bottom-nav .wrap{grid-template-columns:1fr 1fr}
+      .shell{padding-bottom:24px}
+      .stats{grid-template-columns:1fr}
+      .userchip{max-width:58%}
+      .login .left h1{font-size:28px}
+      .media{min-height:320px}
+      .prep-html-grid{grid-template-columns:1fr !important;font-size:14px;gap:12px}
+      .prep-html-card{padding:14px;border-radius:18px}
+      .prep-html-card.wide{grid-column:auto}
+      .prep-description,
+.prep-html-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:18px;
+  line-height:1.65;
+  font-size:15px;
+}
+
+.prep-description.one-column,
+.prep-html-grid.one-column{
+  grid-template-columns:1fr !important;
+}
+
+.description-layout-toggle{
+  margin:0 0 16px;
+  display:flex;
+  justify-content:flex-end;
+}
+
+.description-layout-toggle button{
+  border:0;
+  border-radius:14px;
+  padding:10px 14px;
+  font-weight:800;
+  cursor:pointer;
+  color:var(--text);
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.10);
+}
+
+@media (max-width: 820px){
+  .prep-description,
+  .prep-html-grid{
+    grid-template-columns:1fr !important;
+  }
+}
+   
+    }
+  
+
+/* === ФИНАЛЬНЫЙ ФИКС: все описания из Supabase показывать в 1 столбец === */
+.description-layout-toggle{ display:none !important; }
+.prep-html-grid,
+.prep-description,
+.desc-text .prep-html-grid,
+.desc-text .prep-description,
+div[style*="grid-template-columns:repeat(2"],
+div[style*="grid-template-columns: repeat(2"]{
+  grid-template-columns:1fr !important;
+}
+.prep-html-card.wide{ grid-column:auto !important; }
+.desc-text img{ max-width:100%; height:auto; }
+
+
+/* === Конспекты: красивый список в один столбец === */
+.notes-hero{
+  margin-bottom:16px;
+  padding:18px;
+  border-radius:26px;
+  background:
+    radial-gradient(circle at 18% 10%, rgba(177,124,255,.22), transparent 34%),
+    linear-gradient(180deg, rgba(48,28,78,.92), rgba(21,13,34,.92));
+  border:1px solid rgba(177,124,255,.20);
+  box-shadow:0 14px 34px rgba(0,0,0,.22);
+}
+.notes-hero h3{margin:0 0 8px;font-size:24px;line-height:1.15;}
+.notes-hero p{margin:0;color:var(--muted);line-height:1.55;}
+.notes-layout{
+  display:grid;
+  grid-template-columns:1fr !important;
+  gap:16px;
+  align-items:start;
+}
+.notes-semester{
+  padding:18px;
+  border-radius:26px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.025));
+  border:1px solid rgba(255,255,255,.08);
+  box-shadow:0 12px 30px rgba(0,0,0,.18);
+}
+.notes-semester h3{
+  margin:0 0 14px;
+  font-size:22px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.notes-list{
+  display:grid;
+  grid-template-columns:1fr !important;
+  gap:10px;
+}
+.note-card{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  gap:14px;
+  align-items:center;
+  padding:14px;
+  border-radius:20px;
+  background:rgba(255,255,255,.045);
+  border:1px solid rgba(255,255,255,.08);
+  transition:.18s ease;
+}
+.note-card:hover{
+  transform:translateY(-1px);
+  border-color:rgba(177,124,255,.30);
+  background:rgba(177,124,255,.075);
+}
+.note-num{
+  width:38px;
+  height:38px;
+  border-radius:14px;
+  display:grid;
+  place-items:center;
+  font-weight:900;
+  color:#fff;
+  background:linear-gradient(135deg, var(--accent), var(--accent2));
+  box-shadow:0 10px 22px rgba(125,76,255,.22);
+}
+.note-main h4{
+  margin:0 0 6px;
+  font-size:16px;
+  line-height:1.25;
+  color:var(--text);
+}
+.note-meta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+}
+.note-chip{
+  padding:5px 9px;
+  border-radius:999px;
+  font-size:11px;
+  color:var(--soft);
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.08);
+}
+.note-chip.empty{
+  color:#ffe0a7;
+  background:rgba(255,202,115,.11);
+  border-color:rgba(255,202,115,.18);
+}
+.note-card .inline-actions{margin:0;}
+.note-card .ghost{padding:10px 12px;border-radius:14px;white-space:nowrap;}
+.note-content{
+  margin-top:16px;
+  padding:18px;
+  border-radius:24px;
+  background:linear-gradient(180deg, rgba(177,124,255,.11), rgba(255,255,255,.04));
+  border:1px solid rgba(177,124,255,.18);
+  line-height:1.65;
+  color:var(--soft);
+}
+.note-content h3,.note-content h4{color:var(--text);margin-top:0;}
+@media (max-width: 820px){
+  .note-card{grid-template-columns:auto 1fr;}
+  .note-card .inline-actions{grid-column:1 / -1;}
+  .note-card .ghost{width:100%;}
+}
+
+  </style>
+</head>
+<body>
+<div class="app" id="app"></div>
+
+<div class="bottom-nav" id="bottomNav" style="display:none;">
+  <div class="wrap">
+    <button class="navbtn red" onclick="startExam()">🚀 СДАТЬ ЭКЗАМЕН</button>
+    <button class="navbtn purple" onclick="openBank()">📥 Банк заданий</button>
+    <button class="navbtn purple" onclick="showInfo()">ℹ️ Информация</button>
+    <button class="navbtn purple" onclick="openExamHistory()">📚 История экзаменов</button>
+    <button class="navbtn gray" onclick="openSettings()">⚙️ Настройки / Выход</button>
+  </div>
+</div>
+
+<div class="modal" id="prepModal" aria-hidden="true">
+  <div class="modal-panel">
+    <div class="modal-head">
+      <h3 id="prepModalTitle">Просмотр препарата</h3>
+      <button class="ghost" onclick="closePrepModal()">× Закрыть</button>
+    </div>
+    <div class="prep-modal-body" id="prepModalBody"></div>
+  </div>
+</div>
+
+<div class="fullscreen-img-modal" id="fullscreenImageModal" aria-hidden="true" onclick="if(event.target.id==='fullscreenImageModal') closeFullscreenImage()">
+  <button class="fullscreen-close" onclick="closeFullscreenImage()">× Закрыть</button>
+  <div class="fullscreen-img-wrap">
+    <img id="fullscreenImage" src="" alt="Полноэкранный просмотр" />
+  </div>
+  
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* =========================================================
+   БЛОК 1. БАЗА ДАННЫХ (db)
+   ---------------------------------------------------------
+   КУДА ВСТАВЛЯТЬ ФОТО:
+   - В каждом препарате / схеме ищи поле image_url
+   - Вставляй туда строку:
+       data:image/png;base64,ТВОЯ_BASE64_СТРОКА
+     или
+       data:image/jpeg;base64,ТВОЯ_BASE64_СТРОКА
+
+   ПРИМЕР:
+   {
+     id: "c5_m1",
+     type: "micro",
+     name: "Семенник",
+     stain: "Гематоксилин-эозин",
+     image_url: "data:image/png;base64,СЮДА_ВСТАВЛЯТЬ_BASE64"
+   }
+
+   ПОДСКАЗКА:
+   Если поле уже заполнено как placeholder —
+   просто замени текст после "base64," на свою строку.
+   ========================================================= */
+
+let db = {};
+
+/* =========================================================
+   Supabase DB loader:
+   препараты, описания, варианты, схемы, теория и задачи
+   грузятся из таблиц Supabase.
+   ========================================================= */
+function showDbLoading(message = "Загрузка базы препаратов…") {
+  const app = document.getElementById("app");
+  if (!app) return;
+  app.innerHTML = `
+    <div class="login-wrap">
+      <div class="login" style="grid-template-columns:1fr;max-width:720px;">
+        <div class="left">
+          <div class="brand-badge">🔬</div>
+          <h1>${message}</h1>
+          <p>Сайт получает препараты, описания, схемы и вопросы из Supabase.</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function showDbError(error) {
+  console.error(error);
+  const app = document.getElementById("app");
+  if (!app) return;
+  app.innerHTML = `
+    <div class="login-wrap">
+      <div class="login" style="grid-template-columns:1fr;max-width:820px;">
+        <div class="left">
+          <div class="brand-badge">⚠️</div>
+          <h1>База препаратов не загрузилась</h1>
+          <p>Проверь, что в Supabase выполнены файлы <b>01_supabase_schema.sql</b> и <b>02_import_all_data.sql</b>, а также включены политики чтения.</p>
+          <div class="featurelist">
+            <div class="feature"><span>Ошибка:</span><div><b>${String(error?.message || error)}</b></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function sbSelect(table, query = "*") {
+  if (!supabaseClient) throw new Error("Supabase client не создан. Проверь подключение CDN и ключи.");
+  const { data, error } = await supabaseClient.from(table).select(query);
+  if (error) throw error;
+  return data || [];
+}
+
+async function loadDbFromSupabase() {
+  const [colloquiums, preparations, variants, schemes, theory, tasks] = await Promise.all([
+    sbSelect("colloquiums"),
+    sbSelect("preparations"),
+    sbSelect("preparation_variants"),
+    sbSelect("schemes"),
+    sbSelect("theory_questions"),
+    sbSelect("tasks")
+  ]);
+
+  const nextDb = {};
+  colloquiums
+    .sort((a, b) => (a.num || 0) - (b.num || 0))
+    .forEach((c) => {
+      nextDb[c.id] = {
+        id: c.id,
+        num: c.num,
+        title: c.title,
+        desc: c.description || "",
+        microscopy: [],
+        schemes: [],
+        theory: [],
+        tasks: []
+      };
+    });
+
+  const variantsByPrep = {};
+  variants
+    .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+    .forEach((v) => {
+      if (!variantsByPrep[v.preparation_id]) variantsByPrep[v.preparation_id] = [];
+      variantsByPrep[v.preparation_id].push({ id: v.id, image_url: v.image_url || "" });
+    });
+
+  preparations
+    .sort((a, b) => (a.colloq || 0) - (b.colloq || 0) || String(a.id).localeCompare(String(b.id), "ru"))
+    .forEach((p) => {
+      const colId = p.colloq_id || `colloq_${p.colloq}`;
+      if (!nextDb[colId]) {
+        nextDb[colId] = { id: colId, num: p.colloq, title: `Коллоквиум ${p.colloq}`, desc: "", microscopy: [], schemes: [], theory: [], tasks: [] };
+      }
+      nextDb[colId].microscopy.push({
+        id: p.id,
+        type: p.type || "micro",
+        colloq: p.colloq,
+        name: p.name,
+        stain: p.stain || "",
+        image_url: p.image_url || "",
+        description: p.description || "",
+        variants: variantsByPrep[p.id] || []
+      });
+    });
+
+  schemes
+    .sort((a, b) => (a.colloq || 0) - (b.colloq || 0) || String(a.id).localeCompare(String(b.id), "ru"))
+    .forEach((s) => {
+      const colId = s.colloq_id || `colloq_${s.colloq}`;
+      if (!nextDb[colId]) {
+        nextDb[colId] = { id: colId, num: s.colloq, title: `Коллоквиум ${s.colloq}`, desc: "", microscopy: [], schemes: [], theory: [], tasks: [] };
+      }
+      nextDb[colId].schemes.push({
+        id: s.id,
+        type: s.type || "scheme",
+        colloq: s.colloq,
+        title: s.title,
+        labels: s.labels || {},
+        image_url: s.image_url || ""
+      });
+    });
+
+  theory
+    .sort((a, b) => (a.colloq || 0) - (b.colloq || 0) || String(a.id).localeCompare(String(b.id), "ru"))
+    .forEach((t) => {
+      const colId = t.colloq_id || `colloq_${t.colloq}`;
+      if (!nextDb[colId]) {
+        nextDb[colId] = { id: colId, num: t.colloq, title: `Коллоквиум ${t.colloq}`, desc: "", microscopy: [], schemes: [], theory: [], tasks: [] };
+      }
+      nextDb[colId].theory.push({
+        id: t.id,
+        type: t.type || "theory",
+        colloq: t.colloq,
+        question: t.question,
+        answerVariants: Array.isArray(t.answer_variants) ? t.answer_variants : []
+      });
+    });
+
+  tasks
+    .sort((a, b) => (a.colloq || 0) - (b.colloq || 0) || String(a.id).localeCompare(String(b.id), "ru"))
+    .forEach((task) => {
+      const colId = task.colloq_id || `colloq_${task.colloq}`;
+      if (!nextDb[colId]) {
+        nextDb[colId] = { id: colId, num: task.colloq, title: `Коллоквиум ${task.colloq}`, desc: "", microscopy: [], schemes: [], theory: [], tasks: [] };
+      }
+      nextDb[colId].tasks.push({
+        id: task.id,
+        type: task.type || "task",
+        colloq: task.colloq,
+        question: task.question,
+        answer: task.answer || "",
+        answerVariants: Array.isArray(task.answer_variants) ? task.answer_variants : [],
+        requiresManualCheck: !!task.requires_manual_check
+      });
+    });
+
+  db = nextDb;
+  return db;
+}
+
+const state = {
+  view: 'login',
+  user: null,
+  progress: null,
+  section: 'microscopy',
+  bankCategory: 'micro',
+  training: null,
+  exam: null,
+  info: null,
+  settings: null,
+  zoom: {
+    open: false,
+    src: '',
+    title: '',
+    scale: 1,
+    x: 0,
+    y: 0,
+    pointers: new Map(),
+    startDistance: 0,
+    startScale: 1,
+    startX: 0,
+    startY: 0,
+    startPanX: 0,
+    startPanY: 0,
+    dragging: false,
+  },
+  flash: null,
+  groups: [],
+  authMode: 'login',
+  authLoading: true,
+  authMessage: '',
+  pendingEmail: '',
+  examHistory: [],
+};
+
+const SUPABASE_URL = 'https://mxpkpwfhqjolbetpfxal.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_mpWudxtIq0sPmMZr-7ROqg_O4dFF4ah';
+const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+function fallbackGroups() {
+  return Array.from({length: 200}, (_, i) => `701-${String(i + 1).padStart(2, '0')}`);
+}
+function setAuthMessage(message) {
+  state.authMessage = message || '';
+  render();
+}
+async function loadGroupsFromSupabase() {
+  if (!supabaseClient) {
+    state.groups = fallbackGroups().map(name => ({ id: null, name }));
+    return state.groups;
+  }
+  const { data, error } = await supabaseClient
+    .from('groups')
+    .select('id,name')
+    .order('name', { ascending: true });
+  if (error || !Array.isArray(data) || !data.length) {
+    console.warn('Не удалось загрузить группы из Supabase:', error);
+    state.groups = fallbackGroups().map(name => ({ id: null, name }));
+    return state.groups;
+  }
+  state.groups = data;
+  return state.groups;
+}
+function groupOptionsHtml(selected = '') {
+  const groups = state.groups && state.groups.length ? state.groups : fallbackGroups().map(name => ({id:null, name}));
+  return groups.map(g => `<option value="${safeText(g.name)}" ${g.name === selected ? 'selected' : ''}>${safeText(g.name)}</option>`).join('');
+}
+function groupByName(name) {
+  return (state.groups || []).find(g => g.name === name) || null;
+}
+
+function storageKeyForUser(name) {
+  return `hq_prog_${name}`;
+}
+function todayKey() {
+  return new Date().toISOString().slice(0,10);
+}
+function clamp(v, min, max) {
+  return Math.max(min, Math.min(max, v));
+}
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function deepClone(v) {
+  return JSON.parse(JSON.stringify(v));
+}
+function seedFromString(str) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+function rng(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6D2B79F5) | 0;
+    let t = Math.imul(s ^ s >>> 15, 1 | s);
+    t ^= t + Math.imul(t ^ t >>> 7, 61 | t);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function toDataUri(svg) {
+  return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+}
+function safeText(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function microSvg(title, stain, id) {
+  const r = rng(seedFromString(id + title));
+  const blobs = [];
+  for (let i = 0; i < 40; i++) {
+    const x = Math.floor(r() * 1000);
+    const y = Math.floor(r() * 700);
+    const rx = 12 + Math.floor(r() * 80);
+    const ry = 8 + Math.floor(r() * 70);
+    const fill = r() > 0.6 ? 'rgba(241,174,209,.45)' : 'rgba(145,111,255,.36)';
+    blobs.push(`<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${fill}" transform="rotate(${Math.floor(r()*180)} ${x} ${y})"/>`);
+  }
+  const veins = [];
+  for (let i = 0; i < 8; i++) {
+    const x1 = 20 + r() * 960, y1 = 40 + r() * 620;
+    const x2 = 40 + r() * 960, y2 = 40 + r() * 620;
+    veins.push(`<path d="M ${x1.toFixed(0)} ${y1.toFixed(0)} C ${(x1+80).toFixed(0)} ${(y1-50).toFixed(0)}, ${(x2-80).toFixed(0)} ${(y2+50).toFixed(0)}, ${x2.toFixed(0)} ${y2.toFixed(0)}" stroke="rgba(255,255,255,.16)" stroke-width="${1 + Math.floor(r()*3)}" fill="none"/>`);
+  }
+  const marks = [];
+  for (let i = 0; i < 6; i++) {
+    const x = 70 + r() * 860;
+    const y = 90 + r() * 500;
+    marks.push(`<circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="${6 + Math.floor(r()*20)}" fill="rgba(255,255,255,.16)"/>`);
+  }
+  const svg = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+    <defs>
+      <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#f4d9e8"/>
+        <stop offset="52%" stop-color="#cda7ff"/>
+        <stop offset="100%" stop-color="#f3cdb8"/>
+      </linearGradient>
+      <filter id="blur"><feGaussianBlur stdDeviation="16"/></filter>
+      <pattern id="grid" width="64" height="64" patternUnits="userSpaceOnUse">
+        <path d="M 64 0 L 0 0 0 64" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="2"/>
+      </pattern>
+    </defs>
+    <rect width="1200" height="800" fill="url(#bg)"/>
+    <rect width="1200" height="800" fill="url(#grid)" opacity=".36"/>
+    <g opacity=".85" filter="url(#blur)">${blobs.join('')}</g>
+    <g opacity=".7">${veins.join('')}</g>
+    <g opacity=".65">${marks.join('')}</g>
+    <rect x="24" y="24" width="1152" height="752" rx="28" fill="none" stroke="rgba(70,38,96,.24)" stroke-width="4"/>
+    <rect x="44" y="44" width="1112" height="86" rx="18" fill="rgba(23,12,38,.78)"/>
+    <text x="70" y="92" font-size="28" fill="#fff" font-family="Arial, sans-serif" font-weight="700">${safeText(title)}</text>
+    <text x="70" y="118" font-size="20" fill="#e9d6ff" font-family="Arial, sans-serif">${safeText(stain)}</text>
+    <text x="1136" y="116" text-anchor="end" font-size="14" fill="#d4c0ef" font-family="Arial, sans-serif">HistoQuiz Pro</text>
+  </svg>`;
+  return toDataUri(svg);
+}
+function schemeSvg(item) {
+  const seed = seedFromString(item.id + item.title);
+  const r = rng(seed);
+  const keys = Object.keys(item.labels);
+  const nodes = keys.map((k, idx) => {
+    const x = 180 + (idx % 2) * 260 + Math.floor(r() * 90);
+    const y = 210 + idx * 95;
+    return {k, x, y};
+  });
+  const lines = nodes.map((n, idx) => {
+    const x2 = 700 + (idx % 2) * 110;
+    const y2 = 160 + idx * 88;
+    return `<line x1="${n.x}" y1="${n.y}" x2="${x2}" y2="${y2}" stroke="rgba(255,255,255,.35)" stroke-width="4"/>`;
+  }).join('');
+  const bubbles = nodes.map((n, idx) => {
+    return `<g><circle cx="${n.x}" cy="${n.y}" r="26" fill="rgba(177,124,255,.75)"/><text x="${n.x}" y="${n.y+9}" text-anchor="middle" font-size="26" fill="#fff" font-family="Arial" font-weight="700">${safeText(n.k)}</text></g>`;
+  }).join('');
+  const labels = keys.map((k, idx) => {
+    const x = 750;
+    const y = 150 + idx * 90;
+    return `<text x="${x}" y="${y}" font-size="20" fill="#fff" font-family="Arial" font-weight="700">${safeText(k)} — ${safeText(item.labels[k])}</text>`;
+  }).join('');
+  const svg = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+    <defs>
+      <linearGradient id="bg2" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#29133f"/>
+        <stop offset="100%" stop-color="#120a1e"/>
+      </linearGradient>
+    </defs>
+    <rect width="1200" height="800" fill="url(#bg2)"/>
+    <rect x="40" y="40" width="1120" height="720" rx="30" fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.08)" stroke-width="2"/>
+    <text x="70" y="94" font-size="28" fill="#fff" font-family="Arial" font-weight="700">${safeText(item.title)}</text>
+    <text x="70" y="124" font-size="18" fill="#d9c7f0" font-family="Arial">${safeText(item.colloq ? `Коллоквиум ${item.colloq}` : '')}</text>
+    <g opacity=".95">${lines}${bubbles}</g>
+    <g>${labels}</g>
+    <rect x="680" y="78" width="460" height="610" rx="24" fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.08)"/>
+    <text x="710" y="160" font-size="20" fill="#f8eefe" font-family="Arial" font-weight="700">Элементы схемы</text>
+    <text x="710" y="196" font-size="16" fill="#cab6e5" font-family="Arial">Откройте схему в режиме тренировки</text>
+  </svg>`;
+  return toDataUri(svg);
+}
+/* =========================================================
+   БЛОК 2. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+   ========================================================= */
+function resolveImageUrl(item) {
+  const custom = String(item?.image_url || '').trim();
+  if (custom) return custom;
+  if (String(item?.preview_url || '').trim()) return item.preview_url;
+  if (item?.type === 'scheme' || item?.labels) return schemeSvg(item);
+  return microSvg(item?.name || item?.title || 'В разработке', item?.stain || '', item?.id || 'placeholder');
+}
+
+/* =========================================================
+   БЛОК 3. ИНИЦИАЛИЗАЦИЯ ИЗОБРАЖЕНИЙ
+   ========================================================= */
+function initDbImages() {
+  Object.values(db).forEach(col => {
+    col.microscopy.forEach(item => {
+      // image_url: "data:image/..." — вставьте base64 сюда, если есть готовый файл
+      item.image_url = String(item.image_url || '').trim();
+      item.preview_url = resolveImageUrl(item);
+      if (Array.isArray(item.variants)) {
+        item.variants.forEach((variant, idx) => {
+          variant.image_url = String(variant.image_url || '').trim();
+          const merged = {
+            ...item,
+            ...variant,
+            id: variant.id || `${item.id}_v${idx + 2}`,
+            name: variant.name || item.name,
+            stain: variant.stain || item.stain,
+            type: 'micro'
+          };
+          variant.preview_url = resolveImageUrl(merged);
+        });
+      }
+    });
+    col.schemes.forEach(item => {
+      // image_url: "data:image/..." — вставьте base64 сюда, если есть готовый файл
+      item.image_url = String(item.image_url || '').trim();
+      item.preview_url = resolveImageUrl(item);
+    });
+  });
+}
+initDbImages();
+
+function expandMicroVariants(items) {
+  return items.flatMap(item => {
+    const base = {...item};
+    const variants = Array.isArray(item.variants) ? item.variants : [];
+    const baseItem = {...base, variantIndex: 1, variantTitle: base.variantTitle || 'Вариант 1'};
+    const extra = variants.map((variant, idx) => ({
+      ...base,
+      ...variant,
+      id: variant.id || `${base.id}_v${idx + 2}`,
+      baseId: base.id,
+      type: 'micro',
+      name: variant.name || base.name,
+      stain: variant.stain || base.stain,
+      title: variant.title || base.title || base.name,
+      description: base.description || '',
+      variantIndex: idx + 2,
+      variantTitle: variant.variantTitle || `Вариант ${idx + 2}`
+    }));
+    return [baseItem, ...extra];
+  });
+}
+function itemsForTraining(kind, colloqId) {
+  const raw = db[colloqId][kind === 'micro' ? 'microscopy' : kind === 'scheme' ? 'schemes' : kind === 'theory' ? 'theory' : 'tasks'] || [];
+  return kind === 'micro' ? expandMicroVariants(raw) : raw;
+}
+function getItemDescription(item) {
+  return String(item?.description || item?.explanation || item?.answerDescription || '').trim();
+}
+function collect(type) {
+  return Object.values(db).flatMap(col => {
+    const raw = type === 'microscopy' ? expandMicroVariants(col[type]) : col[type];
+    return raw.map(item => ({...item, title: item.title ?? item.name, colloqId: col.id, colloqNum: col.num}));
+  });
+}
+function allMicro() { return collect('microscopy'); }
+function allMicroBase() {
+  return Object.values(db).flatMap(col => (col.microscopy || []).map(item => ({...item, title: item.title ?? item.name, colloqId: col.id, colloqNum: col.num})));
+}
+function allSchemes() { return collect('schemes'); }
+function allTheory() { return collect('theory'); }
+function allTasks() { return collect('tasks'); }
+
+function normalize(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function sameText(a, b) {
+  const x = normalize(a);
+  const y = normalize(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  if (x.length >= 4 && y.includes(x)) return true;
+  if (y.length >= 4 && x.includes(y)) return true;
+  return false;
+}
+function matchVariants(input, variants) {
+  if (!Array.isArray(variants)) return sameText(input, variants);
+  return variants.some(v => sameText(input, v));
+}
+function numericLike(s) {
+  const n = Number(String(s).replace(',', '.').replace(/[^\d.-]/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+
+function allowedGradesForKind(kind) {
+  if (kind === 'micro' || kind === 'task') return [2, 5];
+  if (kind === 'scheme' || kind === 'theory') return [2, 3, 4, 5];
+  return [2, 5];
+}
+
+function gradeExplanation(kind) {
+  return ({
+    micro: 'Шкала без 1: только 2 или 5. 5 — если всё верно, 2 — если есть ошибка.',
+    task: 'Шкала без 1: только 2 или 5. 5 — если решение верно, 2 — если нет.',
+    scheme: 'Шкала без 1: 2, 3, 4 или 5. 5 — всё верно; 4 — название и примерно половина подписей; 3 — только название; 2 — иначе.',
+    theory: 'Шкала без 1: 2, 3, 4 или 5. Оценивайте по точности и полноте ответа.',
+  })[kind] || 'Шкала без 1: 2–5.';
+}
+
+function countSchemeMatches(cur, attempt) {
+  const labels = cur.labels || {};
+  let matched = 0;
+  if (sameText(attempt?.schemeTitle, cur.title)) matched++;
+  for (const key of Object.keys(labels)) {
+    if (sameText(attempt?.labels?.[key], labels[key])) matched++;
+  }
+  return { matched, total: Object.keys(labels).length + 1 };
+}
+
+function evaluateItem(cur, attempt) {
+  let ok = false;
+  let detail = '';
+  if (cur.type === 'micro') {
+    ok = sameText(attempt?.name, cur.name) && sameText(attempt?.stain, cur.stain);
+    detail = ok ? `Верно: ${cur.name} / ${cur.stain}` : `Правильно: ${cur.name} / ${cur.stain}`;
+  } else if (cur.type === 'scheme') {
+    const { matched, total } = countSchemeMatches(cur, attempt);
+    ok = matched / total >= 0.8;
+    detail = ok ? 'Схема принята.' : `Правильно: ${cur.title}. Подписи: ${Object.entries(cur.labels || {}).map(([k,v]) => `${k}=${v}`).join('; ')}`;
+  } else if (cur.type === 'theory') {
+    ok = matchVariants(attempt?.answer, cur.answerVariants || cur.answer);
+    detail = ok ? 'Ответ принят.' : `Эталон: ${(cur.answerVariants && cur.answerVariants[0]) || cur.answer}`;
+  } else if (cur.type === 'task') {
+    const entered = attempt?.answer || '';
+    const num = numericLike(entered);
+    const target = numericLike(cur.answer);
+    if (num !== null && target !== null) {
+      ok = Math.abs(num - target) / Math.max(1, Math.abs(target)) <= 0.05;
+    } else {
+      ok = matchVariants(entered, cur.answerVariants || cur.answer);
+    }
+    detail = ok ? 'Решение верно.' : `Правильно: ${(cur.answerVariants && cur.answerVariants[0]) || cur.answer}`;
+  }
+  return { ok, detail };
+}
+
+function gradeSuggestion(kind, cur, attempt, ok) {
+  if (kind === 'micro') return ok ? 5 : 2;
+  if (kind === 'task') return ok ? 5 : 2;
+  if (kind === 'scheme') {
+    const { matched, total } = countSchemeMatches(cur, attempt);
+    const labelsTotal = Math.max(0, total - 1);
+    const labelsMatched = Math.max(0, matched - 1);
+    const titleOk = sameText(attempt?.schemeTitle, cur.title);
+    if (titleOk && labelsMatched === labelsTotal && labelsTotal > 0) return 5;
+    if (titleOk && labelsTotal > 0 && labelsMatched >= Math.ceil(labelsTotal / 2)) return 4;
+    if (titleOk) return 3;
+    return 2;
+  }
+  if (kind === 'theory') {
+    const variants = Array.isArray(cur.answerVariants) ? cur.answerVariants : [cur.answer];
+    if (matchVariants(attempt?.answer, variants)) return 5;
+    const ref = normalize(variants[0] || '');
+    const inp = normalize(attempt?.answer || '');
+    if (!ref || !inp) return 2;
+    const refTokens = new Set(ref.split(' ').filter(Boolean));
+    const inpTokens = new Set(inp.split(' ').filter(Boolean));
+    let hit = 0;
+    for (const token of inpTokens) if (refTokens.has(token)) hit++;
+    const ratio = refTokens.size ? hit / refTokens.size : 0;
+    if (ratio >= 0.75) return 4;
+    if (ratio >= 0.45) return 3;
+    return 2;
+  }
+  return ok ? 5 : 2;
+}
+
+function scoreFor(kind) {
+  return ({ micro: 10, scheme: 12, theory: 8, task: 8 })[kind] || 10;
+}
+
+function renderGradeButtons(kind, selectedGrade, handlerName, compact = false) {
+  const classes = compact ? 'inline-actions' : 'inline-actions';
+  return `
+    <div class="mini" style="margin-top:12px">
+      <h4 style="margin-top:0">Самооценка</h4>
+      <p class="tiny">${safeText(gradeExplanation(kind))}</p>
+      <div class="${classes}">
+        ${allowedGradesForKind(kind).map(g => `<button class="${Number(selectedGrade) === g ? 'success-btn' : 'ghost'}" onclick="${handlerName}(${g})">${g}</button>`).join('')}
+      </div>
+    </div>
+  `;
+}
+function getLocalProgress() {
+  if (!state.user) return {score:0, streak:0, learnedIds:[], lastStudyDate:null};
+  try {
+    const raw = localStorage.getItem(storageKeyForUser(state.user.id || state.user.fullName));
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return {score:0, streak:0, learnedIds:[], lastStudyDate:null};
+}
+function getProgress() { return getLocalProgress(); }
+function ensureProgressShape(p) {
+  const base = {score:0, streak:0, learnedIds:[], lastStudyDate:null};
+  const out = {...base, ...(p || {})};
+  out.score = Number(out.score || 0);
+  out.streak = Number(out.streak || 0);
+  out.learnedIds = Array.isArray(out.learnedIds) ? Array.from(new Set(out.learnedIds.filter(Boolean))) : [];
+  out.lastStudyDate = out.lastStudyDate || null;
+  return out;
+}
+function saveProgressLocal() {
+  if (!state.user) return;
+  localStorage.setItem(storageKeyForUser(state.user.id || state.user.fullName), JSON.stringify(state.progress));
+}
+async function loadProgressFromSupabase() {
+  const local = ensureProgressShape(getLocalProgress());
+  if (!supabaseClient || !state.user?.id) return local;
+  const { data, error } = await supabaseClient
+    .from('user_progress')
+    .select('score,streak,learned_ids,last_study_date')
+    .eq('user_id', state.user.id)
+    .maybeSingle();
+  if (error) {
+    console.warn('Не удалось загрузить прогресс из Supabase:', error);
+    return local;
+  }
+  if (!data) {
+    state.progress = local;
+    await saveProgressToSupabase();
+    return local;
+  }
+  return ensureProgressShape({
+    score: data.score,
+    streak: data.streak,
+    learnedIds: data.learned_ids,
+    lastStudyDate: data.last_study_date
+  });
+}
+async function saveProgressToSupabase() {
+  if (!supabaseClient || !state.user?.id || !state.progress) return;
+  const p = ensureProgressShape(state.progress);
+  const { error } = await supabaseClient
+    .from('user_progress')
+    .upsert({
+      user_id: state.user.id,
+      score: p.score,
+      streak: p.streak,
+      learned_ids: p.learnedIds,
+      last_study_date: p.lastStudyDate,
+      updated_at: new Date().toISOString()
+    });
+  if (error) console.warn('Не удалось сохранить прогресс в Supabase:', error);
+}
+function saveProgress() {
+  if (!state.user) return;
+  state.progress = ensureProgressShape(state.progress);
+  saveProgressLocal();
+  saveProgressToSupabase();
+}
+function updateStreak() {
+  const today = todayKey();
+  const last = state.progress.lastStudyDate;
+  if (!last) state.progress.streak = 1;
+  else if (last === today) state.progress.streak = Math.max(1, state.progress.streak || 1);
+  else {
+    const d1 = new Date(last + 'T00:00:00');
+    const d2 = new Date(today + 'T00:00:00');
+    const diff = Math.round((d2 - d1) / 86400000);
+    if (diff === 1) state.progress.streak = (state.progress.streak || 0) + 1;
+    else state.progress.streak = 1;
+  }
+  state.progress.lastStudyDate = today;
+}
+function markLearned(id, points = 10) {
+  state.progress = ensureProgressShape(state.progress);
+  if (!state.progress.learnedIds.includes(id)) state.progress.learnedIds.push(id);
+  state.progress.score = (state.progress.score || 0) + points;
+  updateStreak();
+  saveProgress();
+}
+function learnedSet() { return new Set(state.progress?.learnedIds || []); }
+function toggleLearned(id) {
+  if (!state.progress) return;
+  const set = learnedSet();
+  state.progress.learnedIds = set.has(id) ? state.progress.learnedIds.filter(x => x !== id) : [...state.progress.learnedIds, id];
+  saveProgress();
+  render();
+}
+function completedCountByType(type, colloqId) {
+  const items = db[colloqId][type === 'micro' ? 'microscopy' : type === 'scheme' ? 'schemes' : type === 'theory' ? 'theory' : 'tasks'];
+  const ids = learnedSet();
+  return items.filter(i => ids.has(i.id)).length;
+}
+function totalByType(type, colloqId) {
+  return db[colloqId][type === 'micro' ? 'microscopy' : type === 'scheme' ? 'schemes' : type === 'theory' ? 'theory' : 'tasks'].length;
+}
+function overallLearnedCount() {
+  const ids = learnedSet();
+  let c = 0;
+  Object.values(db).forEach(col => {
+    [...col.microscopy, ...col.schemes, ...col.theory, ...col.tasks].forEach(item => { if (ids.has(item.id)) c++; });
+  });
+  return c;
+}
+function overallTotalCount() {
+  return Object.values(db).reduce((sum, col) => sum + col.microscopy.length + col.schemes.length + col.theory.length + col.tasks.length, 0);
+}
+function colloqProgress(col) {
+  const learned = completedCountByType('micro', col.id);
+  const total = totalByType('micro', col.id);
+  return {learned, total, percent: total ? Math.round(learned / total * 100) : 0};
+}
+function showView(view) {
+  state.view = view;
+  render();
+}
+async function findGroupByNameFromSupabase(name) {
+  const clean = String(name || '').trim();
+  if (!clean) return null;
+  const local = groupByName(clean);
+  if (local?.id) return local;
+  if (!supabaseClient) return local;
+  const { data } = await supabaseClient.from('groups').select('id,name').eq('name', clean).maybeSingle();
+  return data || local || null;
+}
+
+function clearLocalUserDataFor(userObj) {
+  const keys = [];
+  if (userObj?.id) keys.push(userObj.id);
+  if (userObj?.fullName) keys.push(userObj.fullName);
+  keys.forEach(k => {
+    try {
+      localStorage.removeItem(storageKeyForUser(k));
+      localStorage.removeItem(examHistoryStorageKey(k));
+    } catch {}
+  });
+  localStorage.removeItem('histoquiz_user_pro');
+}
+async function forceAuthLogout(message = 'Доступ закрыт или сессия истекла. Войдите снова.') {
+  const oldUser = state.user;
+  clearLocalUserDataFor(oldUser);
+  if (supabaseClient) {
+    try { await supabaseClient.auth.signOut(); } catch {}
+  }
+  state.user = null;
+  state.progress = null;
+  state.examHistory = [];
+  state.training = null;
+  state.exam = null;
+  state.view = 'login';
+  state.authMode = 'login';
+  state.authLoading = false;
+  state.authMessage = message;
+  render();
+}
+async function checkCurrentUserAccess() {
+  if (!supabaseClient || !state.user?.id) return true;
+  const { data, error } = await supabaseClient.auth.getUser();
+  const authUser = data?.user || null;
+  if (error || !authUser || authUser.id !== state.user.id) {
+    await forceAuthLogout('Доступ закрыт, пользователь заблокирован или сессия истекла. Войдите снова.');
+    return false;
+  }
+  return true;
+}
+async function loadProfileForUser(authUser) {
+  if (!authUser || !supabaseClient) return null;
+  const { data: profileData, error } = await supabaseClient
+    .from('profiles')
+    .select('id, full_name, group_id, role')
+    .eq('id', authUser.id)
+    .maybeSingle();
+  if (error) console.warn('Ошибка загрузки профиля:', error);
+  let profile = profileData || null;
+  if (!profile) {
+    const meta = authUser.user_metadata || {};
+    const fullName = meta.full_name || meta.fullName || authUser.email || 'Студент';
+    const groupName = meta.group_name || meta.group || '';
+    const group = await findGroupByNameFromSupabase(groupName);
+    const payload = { id: authUser.id, full_name: fullName, group_id: group?.id || null, role: 'student' };
+    const { error: createError } = await supabaseClient.from('profiles').upsert(payload);
+    if (createError) console.warn('Не удалось создать профиль после подтверждения email:', createError);
+    else profile = payload;
+  }
+  let groupName = '';
+  if (profile?.group_id) {
+    const localGroup = (state.groups || []).find(g => g.id === profile.group_id);
+    if (localGroup) groupName = localGroup.name;
+    else {
+      const { data: groupData } = await supabaseClient.from('groups').select('name').eq('id', profile.group_id).maybeSingle();
+      groupName = groupData?.name || '';
+    }
+  }
+  return {
+    id: authUser.id,
+    email: authUser.email || '',
+    fullName: profile?.full_name || authUser.user_metadata?.full_name || authUser.email || 'Студент',
+    group: groupName || authUser.user_metadata?.group_name || '',
+    groupId: profile?.group_id || null,
+    role: profile?.role || 'student'
+  };
+}
+async function setLoggedInUser(user) {
+  state.user = user;
+  localStorage.setItem('histoquiz_user_pro', JSON.stringify(state.user));
+  state.progress = ensureProgressShape(getLocalProgress());
+  state.progress = await loadProgressFromSupabase();
+  saveProgressLocal();
+  state.examHistory = await loadExamHistoryFromSupabase();
+  state.view = 'dashboard';
+}
+async function loginStudent(email, password) {
+  if (!supabaseClient) {
+    setAuthMessage('Supabase не загрузился. Проверь интернет и обнови страницу.');
+    return;
+  }
+  setAuthMessage('Выполняется вход...');
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  if (error) {
+    setAuthMessage('Ошибка входа: ' + error.message);
+    return;
+  }
+  const profileUser = await loadProfileForUser(data.user);
+  if (!profileUser) {
+    setAuthMessage('Аккаунт найден, но профиль студента не создан. Зарегистрируйся заново или напиши преподавателю.');
+    return;
+  }
+  await setLoggedInUser(profileUser);
+  state.authMessage = '';
+  render();
+}
+async function registerStudent(email, password, fullName, groupName) {
+  if (!supabaseClient) {
+    setAuthMessage('Supabase не загрузился. Проверь интернет и обнови страницу.');
+    return;
+  }
+  let group = groupByName(groupName);
+  if (!group || !group.id) group = await findGroupByNameFromSupabase(groupName);
+  if (!group || !group.id) {
+    setAuthMessage('Группа не найдена в базе. Проверь список групп.');
+    return;
+  }
+  setAuthMessage('Создаём аккаунт...');
+  const { data, error } = await supabaseClient.auth.signUp({
+    email,
+    password,
+    options: { data: { full_name: fullName, group_name: groupName } }
+  });
+  if (error) {
+    setAuthMessage('Ошибка регистрации: ' + error.message);
+    return;
+  }
+  if (!data?.session) {
+    state.pendingEmail = email;
+    state.authMode = 'login';
+    setAuthMessage('Регистрация создана. Если подтверждение почты включено, подтвердите письмо и войдите email/паролем.');
+    return;
+  }
+  const profileUser = await loadProfileForUser(data.user);
+  await setLoggedInUser(profileUser || { id: data.user.id, email, fullName, group: groupName, groupId: group.id, role: 'student' });
+  state.authMessage = '';
+  render();
+}
+
+async function verifyEmailCode(email, token) {
+  if (!supabaseClient) {
+    setAuthMessage('Supabase не загрузился. Проверь интернет и обнови страницу.');
+    return;
+  }
+  setAuthMessage('Проверяем код...');
+  const { data, error } = await supabaseClient.auth.verifyOtp({
+    email,
+    token,
+    type: 'signup'
+  });
+  if (error) {
+    setAuthMessage('Ошибка подтверждения: ' + error.message);
+    return;
+  }
+  const authUser = data?.user || data?.session?.user;
+  if (!authUser) {
+    setAuthMessage('Код принят, но сессия не создана. Попробуй войти email и паролем.');
+    return;
+  }
+  const profileUser = await loadProfileForUser(authUser);
+  await setLoggedInUser(profileUser);
+  state.authMessage = '';
+  render();
+}
+async function handleLoginSubmit(e) {
+  e.preventDefault();
+  const form = e.currentTarget;
+  const mode = form.mode.value;
+  const email = form.email.value.trim();
+  const password = form.password ? form.password.value : '';
+  const token = form.token ? form.token.value.trim() : '';
+  const fullName = form.fullName ? form.fullName.value.trim() : '';
+  const group = form.group ? form.group.value.trim() : '';
+  if (mode === 'verify') {
+    if (!email || !token) {
+      setAuthMessage('Введите email и код подтверждения.');
+      return;
+    }
+    await verifyEmailCode(email, token);
+    return;
+  }
+  if (!email || !password) {
+    setAuthMessage('Введите email и пароль.');
+    return;
+  }
+  if (mode === 'register') {
+    if (!fullName || !group) {
+      setAuthMessage('Для регистрации нужно ввести ФИО и выбрать группу.');
+      return;
+    }
+    await registerStudent(email, password, fullName, group);
+  } else {
+    await loginStudent(email, password);
+  }
+}
+function switchAuthMode(mode) {
+  state.authMode = mode;
+  state.authMessage = '';
+  render();
+}
+async function logout() {
+  if (supabaseClient) await supabaseClient.auth.signOut();
+  localStorage.removeItem('histoquiz_user_pro');
+  state.user = null;
+  state.progress = null;
+  state.examHistory = [];
+  state.training = null;
+  state.exam = null;
+  state.view = 'login';
+  render();
+}
+function resetProgress() {
+  if (!state.user) return;
+  state.progress = {score:0, streak:0, learnedIds:[], lastStudyDate:null};
+  saveProgress();
+  render();
+}
+
+function examHistoryStorageKey(name) { return `hq_exam_history_${name}`; }
+function getLocalExamHistory() {
+  if (!state.user) return [];
+  try {
+    const raw = localStorage.getItem(examHistoryStorageKey(state.user.id || state.user.fullName));
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+}
+async function loadExamHistoryFromSupabase() {
+  const local = getLocalExamHistory();
+  if (!supabaseClient || !state.user?.id) return local;
+  const { data, error } = await supabaseClient
+    .from('exam_results')
+    .select('id, created_at, answers_json, score, total, percent, grade')
+    .eq('user_id', state.user.id)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error) {
+    console.warn('Не удалось загрузить историю экзаменов из Supabase:', error);
+    return local;
+  }
+  const remote = (data || []).map(row => {
+    const rec = row.answers_json && typeof row.answers_json === 'object' ? row.answers_json : {};
+    return { ...rec, id: rec.id || row.id, finishedAt: rec.finishedAt || Date.parse(row.created_at) || Date.now(), finalMark: rec.finalMark || Number(row.grade) || 0, percent: row.percent, score: row.score, total: row.total };
+  });
+  state.examHistory = remote;
+  saveExamHistory(remote);
+  return remote;
+}
+function getExamHistory() {
+  if (Array.isArray(state.examHistory) && state.examHistory.length) return state.examHistory;
+  return getLocalExamHistory();
+}
+function saveExamHistory(list) {
+  if (!state.user) return;
+  const clean = Array.isArray(list) ? list.slice(0, 50) : [];
+  state.examHistory = clean;
+  localStorage.setItem(examHistoryStorageKey(state.user.id || state.user.fullName), JSON.stringify(clean));
+}
+function pushExamHistory(record) {
+  const history = getExamHistory();
+  history.unshift(record);
+  saveExamHistory(history.slice(0, 50));
+}
+async function initFromStorage() {
+  state.authLoading = true;
+  await loadGroupsFromSupabase();
+  if (supabaseClient) {
+    const { data } = await supabaseClient.auth.getSession();
+    const authUser = data?.session?.user || null;
+    if (authUser) {
+      const profileUser = await loadProfileForUser(authUser);
+      if (profileUser) {
+        await setLoggedInUser(profileUser);
+        state.authLoading = false;
+        return;
+      }
+    }
+  }
+  state.authLoading = false;
+}
+function cardTagByState(type, colloqId) {
+  const total = totalByType(type, colloqId);
+  const learned = completedCountByType(type, colloqId);
+  const percent = total ? Math.round(learned / total * 100) : 0;
+  if (type === 'micro') return {cls: percent === 100 ? 'good' : 'warn', text: `${learned}/${total} (${percent}%)`};
+  if (db[colloqId][type === 'scheme' ? 'schemes' : type].length) return {cls: 'dev', text: `${db[colloqId][type === 'scheme' ? 'schemes' : type].length} заданий`};
+  return {cls:'dev', text:'В разработке'};
+}
+async function startTraining(kind, colloqId) {
+  if (!(await checkCurrentUserAccess())) return;
+  const source = itemsForTraining(kind, colloqId);
+  if (!source || !source.length) {
+    alert('Раздел пока пуст.');
+    return;
+  }
+  state.training = {
+    kind,
+    colloqId,
+    title: `${db[colloqId].title} — ${kindLabel(kind)}`,
+    queue: shuffle(source.map(item => deepClone(item))),
+    current: null,
+    lastResult: null,
+    resultDetail: null,
+    answered: 0,
+    correct: 0,
+    done: false,
+    currentAttempt: {},
+    awaitingGrade: false,
+    selectedGrade: null,
+    suggestedGrade: null,
+  };
+  state.view = 'training';
+  nextTrainingQuestion();
+  render();
+}
+function kindLabel(kind) {
+  return ({micro:'Препараты', scheme:'Схемы', theory:'Теоретические вопросы', task:'Задачи'})[kind] || kind;
+}
+function nextTrainingQuestion() {
+  if (!state.training) return;
+  if (state.training.awaitingGrade) return;
+  if (!state.training.queue.length) {
+    state.training.done = true;
+    state.training.current = null;
+    render();
+    return;
+  }
+  state.training.current = state.training.queue.shift();
+  state.training.currentAttempt = {};
+  state.training.lastResult = null;
+  state.training.resultDetail = null;
+  state.training.awaitingGrade = false;
+  state.training.evaluation = null;
+  state.training.selectedGrade = null;
+  render();
+}
+function clampGrade(v) {
+  return clamp(Number(v) || 0, 2, 5);
+}
+function ratingLabel(g) {
+  return ({2:'2 — не засчитано', 3:'3 — частично', 4:'4 — почти верно', 5:'5 — отлично'})[g] || String(g || '');
+}
+function evaluateItem(item, attempt) {
+  const cur = item || {};
+  const a = attempt || {};
+  if (cur.type === 'micro') {
+    const nameOk = sameText(a.name, cur.name) || normalize(cur.name).includes(normalize(a.name || ''));
+    const stainOk = sameText(a.stain, cur.stain);
+    const ok = nameOk && stainOk;
+    return {
+      ok,
+      suggestedGrade: ok ? 5 : 2,
+      detail: ok ? `Верно: ${cur.name} / ${cur.stain}` : `Правильно: ${cur.name} / ${cur.stain}`,
+      title: cur.name || cur.title || ''
+    };
+  }
+  if (cur.type === 'scheme') {
+    const titleOk = sameText(a.schemeTitle, cur.title);
+    const labels = cur.labels || {};
+    let good = 0;
+    const total = Math.max(1, Object.keys(labels).length);
+    for (const key of Object.keys(labels)) {
+      if (sameText(a.labels?.[key], labels[key])) good++;
+    }
+    const ratio = good / total;
+    let suggestedGrade = 2;
+    if (titleOk && ratio === 1) suggestedGrade = 5;
+    else if (titleOk && ratio >= 0.5) suggestedGrade = 4;
+    else if (titleOk) suggestedGrade = 3;
+    const ok = suggestedGrade >= 5;
+    return {
+      ok,
+      suggestedGrade,
+      detail: titleOk
+        ? `Название верное. Подписей угадано: ${good}/${total}.`
+        : `Название схемы не совпало. Правильно: ${cur.title}.`,
+      title: cur.title || ''
+    };
+  }
+  if (cur.type === 'theory') {
+    const entered = String(a.answer || '').trim();
+    return {
+      ok: false,
+      suggestedGrade: entered ? 3 : 2,
+      detail: 'Сложный теоретический ответ. Поставьте себе оценку после проверки.',
+      title: cur.question || ''
+    };
+  }
+  if (cur.type === 'task') {
+    const entered = a.answer || '';
+    const num = numericLike(entered);
+    const target = numericLike(cur.answer);
+    let ok = false;
+    if (num !== null && target !== null) {
+      ok = Math.abs(num - target) / Math.max(1, Math.abs(target)) <= 0.05;
+    } else {
+      ok = matchVariants(entered, cur.answerVariants || cur.answer);
+    }
+    return {
+      ok,
+      suggestedGrade: ok ? 5 : 2,
+      detail: ok ? 'Решение верно.' : `Правильно: ${(cur.answerVariants && cur.answerVariants[0]) || cur.answer}`,
+      title: cur.question || ''
+    };
+  }
+  return { ok:false, suggestedGrade:3, detail:'', title:'' };
+}
+function applyGradeToProgress(item, grade) {
+  if (!state.progress || !item) return;
+  if (grade === 5 && !state.progress.learnedIds.includes(item.id)) state.progress.learnedIds.push(item.id);
+  state.progress.score = (state.progress.score || 0) + clampGrade(grade);
+  updateStreak();
+  saveProgress();
+}
+function submitTrainingAnswer() {
+  const tr = state.training;
+  if (!tr || !tr.current || tr.awaitingGrade) return;
+  const cur = tr.current;
+  const evalData = evaluateItem(cur, tr.currentAttempt);
+  tr.awaitingGrade = true;
+  tr.evaluation = evalData;
+  tr.lastResult = evalData.ok;
+  tr.resultDetail = evalData.detail;
+  tr.selectedGrade = clampGrade(evalData.suggestedGrade || 3);
+  render();
+}
+function finalizeTrainingGrade(grade) {
+  const tr = state.training;
+  if (!tr || !tr.current || !tr.awaitingGrade) return;
+  const cur = tr.current;
+  const g = clampGrade(grade);
+  tr.answered = (tr.answered || 0) + 1;
+  tr.gradeHistory = tr.gradeHistory || [];
+  tr.gradeHistory.push({id: cur.id, grade: g});
+  tr.correct = (tr.correct || 0) + (g === 5 ? 1 : 0);
+  applyGradeToProgress(cur, g);
+  tr.lastGrade = g;
+  tr.lastResult = g === 5;
+  tr.resultDetail = `${tr.evaluation?.detail || ''} Итоговая оценка: ${g}/5.`;
+  tr.awaitingGrade = false;
+  tr.evaluation = null;
+  tr.selectedGrade = null;
+  if (g === 5) {
+    nextTrainingQuestion();
+  } else {
+    if (Math.random() < 0.5) {
+      tr.queue.push(cur);
+    } else {
+      const maxGap = Math.min(3, Math.max(1, tr.queue.length));
+      const gap = 1 + Math.floor(Math.random() * maxGap);
+      const pos = Math.min(tr.queue.length, gap);
+      tr.queue.splice(pos, 0, cur);
+    }
+    nextTrainingQuestion();
+  }
+}
+function checkTrainingAutoNext() {
+  // no-op placeholder
+}
+function finishTraining() {
+  state.training = null;
+  state.view = 'dashboard';
+  render();
+}
+function buildExamTicket() {
+  const pool = {
+    micro: shuffle(allMicro()),
+    scheme: shuffle(allSchemes()),
+    theory: shuffle(allTheory()),
+    task: shuffle(allTasks()),
+  };
+  const take = (arr, n, fallbackFactory) => {
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      if (arr.length) out.push(arr.shift());
+      else out.push(fallbackFactory(i));
+    }
+    return out;
+  };
+  const dummy = {
+    micro: i => ({id:`dummy_micro_${i}`, type:'micro', name:'В разработке', stain:'В разработке', image_url: microSvg('В разработке', 'Заполните массив microscopy', 'dummy'+i), colloqId:'dummy'}),
+    scheme: i => ({id:`dummy_scheme_${i}`, type:'scheme', title:'В разработке', labels:{'1':'...', '2':'...'}, image_url: schemeSvg({id:`dummy_scheme_${i}`, title:'В разработке', labels:{'1':'...','2':'...'}}), colloqId:'dummy'}),
+    theory: i => ({id:`dummy_theory_${i}`, type:'theory', question:'В разработке', answerVariants:['В разработке'], colloqId:'dummy'}),
+    task: i => ({id:`dummy_task_${i}`, type:'task', question:'В разработке', answer:'В разработке', answerVariants:['В разработке'], colloqId:'dummy'}),
+  };
+  const ticket = [
+    ...take(pool.micro, 2, dummy.micro),
+    ...take(pool.scheme, 1, dummy.scheme),
+    ...take(pool.theory, 2, dummy.theory),
+    ...take(pool.task, 2, dummy.task),
+  ].map((item, idx) => ({...item, ticketIndex: idx + 1}));
+  return ticket;
+}
+let examTimerHandle = null;
+async function startExam() {
+  if (!(await checkCurrentUserAccess())) return;
+  state.exam = {
+    ticket: buildExamTicket(),
+    currentIndex: 0,
+    answers: [],
+    startedAt: Date.now(),
+    duration: 90 * 60 * 1000,
+    finished: false,
+    resultOpen: false,
+    currentAttempt: {},
+    lastResult: null,
+    resultDetail: null,
+  };
+  state.view = 'exam';
+  if (examTimerHandle) clearInterval(examTimerHandle);
+  examTimerHandle = setInterval(() => {
+    if (!state.exam || state.exam.finished) return;
+    const left = state.exam.startedAt + state.exam.duration - Date.now();
+    if (left <= 0) {
+      finishExam(true);
+      return;
+    }
+    renderExamTimer();
+  }, 1000);
+  render();
+}
+function currentExamItem() {
+  return state.exam?.ticket?.[state.exam.currentIndex] || null;
+}
+function saveExamCurrentAnswer() {
+  const ex = state.exam;
+  const cur = currentExamItem();
+  if (!ex || !cur) return;
+  const evaluation = evaluateItem(cur, ex.currentAttempt);
+  ex.answers[ex.currentIndex] = {
+    ok: evaluation.ok,
+    detail: evaluation.detail,
+    user: deepClone(ex.currentAttempt),
+    suggestedGrade: clampGrade(evaluation.suggestedGrade || 3),
+    grade: ex.answers[ex.currentIndex]?.grade ?? clampGrade(evaluation.suggestedGrade || 3),
+    itemId: cur.id,
+    itemType: cur.type,
+  };
+}
+function submitExamAnswer() {
+  // Экзамен проверяется только в конце по итоговым оценкам.
+  saveExamCurrentAnswer();
+  render();
+}
+function nextExamQuestion() {
+  if (!state.exam) return;
+  saveExamCurrentAnswer();
+  state.exam.currentIndex++;
+  state.exam.currentAttempt = {};
+  state.exam.lastResult = null;
+  state.exam.resultDetail = null;
+  if (state.exam.currentIndex >= state.exam.ticket.length) {
+    finishExam(false);
+  } else {
+    render();
+  }
+}
+async function saveExamResultToSupabase(record) {
+  if (!supabaseClient || !state.user?.id) return;
+  const score = Array.isArray(record.grades) ? record.grades.reduce((s, v) => s + (Number(v) || 0), 0) : 0;
+  const total = Array.isArray(record.grades) ? record.grades.length * 5 : 0;
+  const percent = total ? Math.round((score / total) * 100) : 0;
+  const { error } = await supabaseClient.from('exam_results').insert({
+    user_id: state.user.id,
+    student_name: state.user.fullName || '',
+    group_name: state.user.group || '',
+    colloq: 'Экзаменационный билет',
+    score,
+    total,
+    percent,
+    grade: String(record.finalMark || ''),
+    duration_seconds: Math.max(0, Math.round(((record.finishedAt || Date.now()) - (record.startedAt || Date.now())) / 1000)),
+    answers_json: record
+  });
+  if (error) {
+    console.warn('Ошибка сохранения результата в Supabase:', error);
+    alert('Результат сохранён локально, но не отправился в базу: ' + error.message);
+  }
+}
+
+async function finalizeExamGrades() {
+  const ex = state.exam;
+  if (!ex || ex.finalized) return;
+  ex.finalized = true;
+  const answers = ex.answers || [];
+  const items = ex.ticket || [];
+  const grades = items.map((item, idx) => clampGrade(answers[idx]?.grade ?? answers[idx]?.suggestedGrade ?? (item.type === 'theory' ? 3 : 2)));
+  const avg = grades.length ? grades.reduce((s, v) => s + v, 0) / grades.length : 0;
+  const finalMark = grades.length ? Math.round(avg) : 0;
+  items.forEach((item, idx) => {
+    const grade = grades[idx];
+    if (item) applyGradeToProgress(item, grade);
+  });
+  const examRecord = {
+    id: `exam_${Date.now()}`,
+    startedAt: ex.startedAt,
+    finishedAt: Date.now(),
+    durationMinutes: Math.round((ex.duration || 0) / 60000) || 90,
+    avg: Number(avg.toFixed(2)),
+    finalMark,
+    grades,
+    studentName: state.user?.fullName || '',
+    groupName: state.user?.group || '',
+    items: items.map((item, idx) => ({
+      type: item.type,
+      label: item.type === 'micro' ? (item.name || item.title || '') : item.type === 'scheme' ? (item.title || '') : (item.question || ''),
+      grade: grades[idx],
+      itemId: item.id || ''
+    })),
+  };
+  pushExamHistory(examRecord);
+  await saveExamResultToSupabase(examRecord);
+  state.exam = null;
+  state.view = 'dashboard';
+  render();
+}
+function finishExam(byTimer = false) {
+  if (!state.exam || state.exam.finished) return;
+  saveExamCurrentAnswer();
+  state.exam.finished = true;
+  if (examTimerHandle) {
+    clearInterval(examTimerHandle);
+    examTimerHandle = null;
+  }
+  render();
+}
+function remainingExamTime() {
+  if (!state.exam) return 0;
+  return Math.max(0, state.exam.startedAt + state.exam.duration - Date.now());
+}
+function formatTime(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+function openBank(category = 'micro') {
+  state.bankCategory = category;
+  state.view = 'bank';
+  render();
+}
+function showInfo() {
+  state.view = 'info';
+  render();
+}
+function openExamHistory() {
+  state.view = 'examHistory';
+  render();
+}
+function openSettings() {
+  state.view = 'settings';
+  render();
+}
+
+function getMicroVariants(item) {
+  if (!item) return [];
+  const base = {...item, variantIndex: 1, variantTitle: 'Вариант 1', baseId: item.id, description: item.description || ''};
+  const extra = Array.isArray(item.variants) ? item.variants.map((variant, idx) => ({
+    ...item,
+    ...variant,
+    id: variant.id || `${item.id}_v${idx + 2}`,
+    baseId: item.id,
+    type: 'micro',
+    name: item.name,
+    stain: item.stain,
+    description: item.description || '',
+    variantIndex: idx + 2,
+    variantTitle: variant.variantTitle || `Вариант ${idx + 2}`
+  })) : [];
+  return [base, ...extra].slice(0, 2);
+}
+function findMicroBaseById(id) {
+  return allMicroBase().find(item => item.id === id || (Array.isArray(item.variants) && item.variants.some(v => v.id === id))) || null;
+}
+function openBankItem(id, selectedIndex = 0) {
+  const item = findMicroBaseById(id);
+  if (!item) return;
+  const variants = getMicroVariants(item);
+  const modal = document.getElementById('prepModal');
+  const body = document.getElementById('prepModalBody');
+  document.getElementById('prepModalTitle').textContent = `${item.name} · ${item.stain || 'окраска не указана'}`;
+  const description = getItemDescription(item) || 'Описание пока не добавлено. Вставь текст в поле description у этого препарата.';
+  body.innerHTML = `
+    <div class="prep-detail-layout">
+      <div class="prompt">
+        <h3>${safeText(item.name)}</h3>
+        <p><strong>Коллоквиум:</strong> ${safeText(item.colloqNum || item.colloq || '—')} · <strong>Окраска:</strong> ${safeText(item.stain || '—')}</p>
+        <p style="margin-top:8px">Прокрути вниз: сначала идёт 1 вариант почти на всё окно, затем 2 вариант, затем отдельный широкий блок с описанием.</p>
+      </div>
+
+      ${variants.map((v, idx) => `
+        <div class="prep-variant-full" id="${safeText(v.id || `${item.id}_v${idx + 1}`)}">
+          <h3>${safeText(v.variantTitle || `Вариант ${idx + 1}`)}</h3>
+          <img src="${resolveImageUrl(v)}" alt="${safeText(item.name)} · ${safeText(v.variantTitle || `Вариант ${idx + 1}`)}" />
+        </div>
+      `).join('')}
+
+      <div class="prep-description bank-show">
+        <h4>Описание препарата</h4>
+        <div class="desc-text">${description}</div>
+      </div>
+    </div>
+  `;
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden', 'false');
+  body.scrollTop = 0;
+}
+function closePrepModal() {
+  const modal = document.getElementById('prepModal');
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden', 'true');
+  document.getElementById('prepModalBody').innerHTML = '';
+}
+document.getElementById('prepModal').addEventListener('click', (e) => {
+  if (e.target.id === 'prepModal') closePrepModal();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const full = document.getElementById('fullscreenImageModal');
+  if (full && full.classList.contains('open')) {
+    closeFullscreenImage();
+    return;
+  }
+  if (document.getElementById('prepModal').classList.contains('open')) closePrepModal();
+});
+
+
+function openFullscreenImage(src, caption = '') {
+  const modal = document.getElementById('fullscreenImageModal');
+  const img = document.getElementById('fullscreenImage');
+  const cap = document.getElementById('fullscreenImageCaption');
+  if (!modal || !img) return;
+  img.src = src || '';
+  img.alt = caption || 'Полноэкранный просмотр';
+  if (cap) cap.textContent = caption || 'Нажмите Esc или по фону, чтобы закрыть';
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden', 'false');
+}
+function closeFullscreenImage() {
+  const modal = document.getElementById('fullscreenImageModal');
+  const img = document.getElementById('fullscreenImage');
+  if (!modal) return;
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden', 'true');
+  if (img) img.src = '';
+}
+
+function renderExamTimer() {
+  const timerEl = document.getElementById('examTimer');
+  if (timerEl && state.exam && !state.exam.finished) timerEl.textContent = formatTime(remainingExamTime());
+}
+function renderLogin() {
+  document.getElementById('bottomNav').style.display = 'none';
+  const mode = state.authMode === 'register' ? 'register' : 'login';
+  const isRegister = mode === 'register';
+  const isVerify = false;
+  const message = state.authMessage ? `<div class="feedback show ${state.authMessage.includes('Ошибка') ? 'bad' : ''}"><div class="small">${safeText(state.authMessage)}</div></div>` : '';
+  const groups = groupOptionsHtml();
+  if (state.authLoading) {
+    return `
+      <div class="login-wrap">
+        <div class="panel pad" style="width:min(620px,100%);text-align:center">
+          <h2>Загрузка HistoQuiz...</h2>
+          <p class="muted">Проверяем аккаунт и подключение к базе данных.</p>
+        </div>
+      </div>
+    `;
+  }
+  return `
+    <div class="login-wrap">
+      <div class="login">
+        <div class="left">
+          <div class="brand" style="margin-bottom:10px">
+            <div class="brand-badge">🔬</div>
+            <div>
+              <h1>HistoQuiz Pro Vundervaflia</h1>
+              <p>Тренировка и экзамен по гистологии с сохранением результатов</p>
+            </div>
+          </div>
+          <p>Теперь вход работает через базу данных Supabase: студент сам регистрируется, выбирает группу, проходит тест, а результат сохраняется в таблицу.</p>
+          <div class="featurelist">
+            <div class="feature"><div>1</div><div><b>Регистрация студента</b><span class="muted">Email, пароль, ФИО и группа.</span></div></div>
+            <div class="feature"><div>2</div><div><b>Личный прогресс</b><span class="muted">Прогресс и история синхронизируются между устройствами через Supabase.</span></div></div>
+            <div class="feature"><div>3</div><div><b>Результаты в Supabase</b><span class="muted">После подтверждения итоговой оценки попытка отправляется в exam_results.</span></div></div>
+          </div>
+        </div>
+        <div class="right">
+          <div class="inline-actions" style="margin-bottom:12px">
+            <button class="${(!isRegister && !isVerify) ? 'primary' : 'ghost'}" type="button" onclick="switchAuthMode('login')">Вход</button>
+            <button class="${isRegister ? 'primary' : 'ghost'}" type="button" onclick="switchAuthMode('register')">Регистрация</button>
+          </div>
+          <form class="form" onsubmit="handleLoginSubmit(event)">
+            <input type="hidden" name="mode" value="${isVerify ? 'verify' : isRegister ? 'register' : 'login'}" />
+            <div class="field">
+              <label>Email</label>
+              <input name="email" type="email" placeholder="student@example.com" autocomplete="email" required />
+            </div>
+            ${isVerify ? `
+              <div class="field">
+                <label>Код подтверждения из письма</label>
+                <input name="token" inputmode="numeric" placeholder="Например: 123456" required />
+              </div>
+            ` : `
+              <div class="field">
+                <label>Пароль</label>
+                <input name="password" type="password" placeholder="Минимум 6 символов" autocomplete="${isRegister ? 'new-password' : 'current-password'}" required />
+              </div>
+            `}
+            ${isRegister ? `
+              <div class="field">
+                <label>Фамилия Имя Отчество</label>
+                <input name="fullName" placeholder="Иванов Иван Иванович" autocomplete="name" required />
+              </div>
+              <div class="field">
+                <label>Учебная группа</label>
+                <select name="group" required>
+                  <option value="">Выберите группу</option>
+                  ${groups}
+                </select>
+              </div>
+            ` : ''}
+            <button class="primary" type="submit">${isVerify ? 'Подтвердить код' : isRegister ? 'Зарегистрироваться' : 'Войти'}</button>
+            ${message}
+          </form>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function renderDashboard() {
+  document.getElementById('bottomNav').style.display = 'block';
+  const userName = state.user?.fullName || '';
+  const stats = state.progress || {score:0, streak:0, learnedIds:[]};
+  const learned = overallLearnedCount();
+  const total = overallTotalCount();
+  const sections = {
+    microscopy: 'Коллоквиумы (Препараты)',
+    theory: 'Коллоквиумы (Теоретические вопросы)',
+    tasks: 'Коллоквиумы (Задачи)',
+    schemes: 'Коллоквиумы (Схемы)',
+  };
+  const sectionTitles = {
+    microscopy: 'Микропрепараты',
+    theory: 'Теоретические вопросы',
+    tasks: 'Контрольные задачи',
+    schemes: 'Структурные схемы',
+  };
+  const keyMap = {microscopy:'microscopy', theory:'theory', tasks:'tasks', schemes:'schemes'};
+  const cards = Object.values(db).map(col => {
+    const p = colloqProgress(col);
+    const activeType = state.section;
+    const items = col[keyMap[activeType]];
+    const totalItems = items.length;
+    const learnedItems = items.filter(i => learnedSet().has(i.id)).length;
+    const percent = totalItems ? Math.round(learnedItems / totalItems * 100) : 0;
+    const tag = activeType === 'microscopy' ? (percent === 100 ? 'good' : 'warn') : 'dev';
+    const actionText = activeType === 'microscopy' ? 'Тренировка' : (totalItems ? 'Просмотр / тренировка' : 'В разработке');
+    return `
+      <div class="card clickable" onclick="startTraining('${activeType === 'microscopy' ? 'micro' : activeType === 'theory' ? 'theory' : activeType === 'tasks' ? 'task' : 'scheme'}','${col.id}')">
+        <div class="card-top">
+          <div>
+            <h4>${col.title}</h4>
+            <p>${col.desc}</p>
+          </div>
+          <span class="badge ${tag}">${actionText}</span>
+        </div>
+        <div class="progress"><span style="width:${percent}%"></span></div>
+        <div class="meta">
+          <span>${learnedItems} / ${totalItems} ${activeType === 'microscopy' ? 'преп.' : 'зад.'}</span>
+          <span>${percent}%</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+  return `
+    <div class="shell">
+      <div class="topbar">
+        <div class="brand">
+          <div class="brand-badge">🔬</div>
+          <div>
+            <h1>HistoQuiz Pro Vundervaflia</h1>
+            <p>Дашборд студента</p>
+          </div>
+        </div>
+        <div class="userchip">👨‍⚕️ <strong>${safeText(userName)}</strong> · ${safeText(state.user?.group || '')}</div>
+      </div>
+
+      <div class="hero">
+        <div class="panel pad">
+          <div class="stats">
+            <div class="stat"><div class="label">Очки</div><div class="value">${stats.score || 0}</div><div class="hint">За правильные ответы</div></div>
+            <div class="stat"><div class="label">Стрик</div><div class="value">${stats.streak || 0}</div><div class="hint">Дней подряд</div></div>
+            <div class="stat"><div class="label">Выучено</div><div class="value">${learned}</div><div class="hint">${total} элементов в базе</div></div>
+          </div>
+        </div>
+        <div class="panel status-card">
+          <div>
+            <h2>Учебный модуль для гистологии</h2>
+            <p>Выбирайте раздел, проходите вопросы по изображениям и сохраняйте прогресс локально. Масштабирование и быстрый переход между экранами работают без перезагрузки страницы.</p>
+          </div>
+          <div class="pill-row">
+            <div class="pill">SPA</div>
+            <div class="pill">localStorage</div>
+            <div class="pill">Самооценка 2–5</div>
+            <div class="pill">Экзамен</div>
+            <div class="pill">Банк заданий</div>
+            <div class="pill">История экзаменов</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-tabs">
+        <button class="tab ${state.section==='microscopy'?'active':''}" onclick="setSection('microscopy')">Препараты</button>
+        <button class="tab ${state.section==='theory'?'active':''}" onclick="setSection('theory')">Теоретические вопросы</button>
+        <button class="tab ${state.section==='tasks'?'active':''}" onclick="setSection('tasks')">Задачи</button>
+        <button class="tab ${state.section==='schemes'?'active':''}" onclick="setSection('schemes')">Схемы</button>
+      </div>
+
+      <div class="section-head">
+        <div>
+          <h3>${sections[state.section]}</h3>
+          <div class="sub">Нажмите на карточку для запуска режима работы с соответствующим коллоквиумом.</div>
+        </div>
+        <div class="sub">${sectionTitles[state.section]}</div>
+      </div>
+
+      <div class="grid">
+        ${cards}
+      </div>
+    </div>
+  `;
+}
+function setSection(section) {
+  state.section = section;
+  render();
+}
+function renderQuestionHeader(item, mode) {
+  const title = mode === 'exam' ? `Билет №${item.ticketIndex}` : `Задание`;
+  const kind = kindLabel(item.type);
+  const guide = mode === 'exam'
+    ? (item.type === 'micro'
+        ? 'Ответ сохранится, а итоговая оценка будет поставлена в конце экзамена. Шкала без 1: только 2 или 5.'
+        : item.type === 'scheme'
+          ? 'Ответ сохранится, а итоговая оценка будет поставлена в конце экзамена. Шкала без 1: 2, 3, 4 или 5.'
+          : item.type === 'theory'
+            ? 'Ответ сохранится, а итоговая оценка будет поставлена в конце экзамена. Шкала без 1: 2, 3, 4 или 5.'
+            : 'Ответ сохранится, а итоговая оценка будет поставлена в конце экзамена. Шкала без 1: только 2 или 5.')
+    : (item.type === 'micro'
+        ? 'После проверки поставьте себе только 2 или 5.'
+        : item.type === 'scheme'
+          ? 'После проверки поставьте себе 2, 3, 4 или 5.'
+          : item.type === 'theory'
+            ? 'После проверки поставьте себе 2, 3, 4 или 5.'
+            : 'После проверки поставьте себе только 2 или 5.');
+  return `
+    <div class="prompt">
+      <h3>${title} · ${kind}</h3>
+      <p>${item.type === 'micro'
+        ? 'Введите название препарата и типичную окраску.'
+        : item.type === 'scheme'
+          ? 'Введите название схемы и подписи элементов.'
+          : item.type === 'theory'
+            ? 'Введите краткий и точный ответ.'
+            : 'Введите решение задачи.'}</p>
+      <p class="tiny" style="margin-top:8px">${safeText(guide)}</p>
+    </div>
+  `;
+}
+function renderTraining() {
+  const tr = state.training;
+  if (!tr) return '';
+  const cur = tr.current;
+  if (!cur) {
+    const total = tr.answered || 0;
+    const correct = tr.correct || 0;
+    const percent = total ? Math.round(correct / total * 100) : 0;
+    return `
+      <div class="shell">
+        <div class="backline"><button class="ghost" onclick="showView('dashboard')">← Назад</button><div class="muted">${safeText(tr.title)}</div></div>
+        <div class="panel pad">
+          <h2 style="margin-top:0">Тренировка завершена</h2>
+          <p class="muted">Оценённые ответы: ${correct} из ${total}. Текущий результат: ${percent}%.</p>
+          <div class="inline-actions">
+            <button class="primary" onclick="startTraining('${tr.kind}','${tr.colloqId}')">Повторить</button>
+            <button class="ghost" onclick="showView('dashboard')">Вернуться на дашборд</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  let right = '';
+  if (tr.kind === 'micro') {
+    right = `
+      <div class="field"><label>Название препарата</label><input id="ansName" placeholder="Введите название..." value="${safeText(tr.currentAttempt.name || '')}" oninput="state.training.currentAttempt.name=this.value" /></div>
+      <div class="field"><label>Типичная окраска</label>
+        <select id="ansStain" onchange="state.training.currentAttempt.stain=this.value">
+          <option value="">Выберите окраску</option>
+          ${['Гематоксилин-эозин','Романовский–Гимза','Осмий','Орсеин','Импрегнация серебром','Пас','Судан'].map(v => `<option ${tr.currentAttempt.stain===v?'selected':''}>${v}</option>`).join('')}
+        </select>
+      </div>
+    `;
+  } else if (tr.kind === 'scheme') {
+    const keys = Object.keys(cur.labels);
+    right = `
+      <div class="field"><label>Название схемы</label><input placeholder="Введите название схемы" value="${safeText(tr.currentAttempt.schemeTitle || '')}" oninput="state.training.currentAttempt.schemeTitle=this.value" /></div>
+      <div class="scheme-grid">
+        ${keys.map(k => `<div class="field"><label>${safeText(k)}</label><input placeholder="Подпись" value="${safeText((tr.currentAttempt.labels && tr.currentAttempt.labels[k]) || '')}" data-scheme-key="${safeText(k)}" /></div>`).join('')}
+      </div>
+    `;
+  } else {
+    right = `
+      <div class="field"><label>Ответ</label><textarea placeholder="Введите ответ" oninput="state.training.currentAttempt.answer=this.value">${safeText(tr.currentAttempt.answer || '')}</textarea></div>
+    `;
+  }
+
+  const feedbackClass = tr.awaitingGrade ? 'show' : tr.lastResult === true ? 'ok show' : tr.lastResult === false ? 'bad show' : '';
+  const feedbackTitle = tr.awaitingGrade ? 'Оцените ответ' : tr.lastResult === true ? 'Ответ принят' : tr.lastResult === false ? 'Проверка готова' : '';
+  const suggested = tr.evaluation?.suggestedGrade ?? 3;
+  const canGrade = tr.awaitingGrade;
+  const descriptionText = getItemDescription(cur);
+  const showDescription = Boolean(feedbackClass && descriptionText);
+  const gradeButtons = allowedGradesForKind(tr.kind).map(g => `<button type="button" class="grade-btn ${Number(tr.selectedGrade)===g?'active':''}" onclick="finalizeTrainingGrade(${g})">${g}</button>`).join('');
+  return `
+    <div class="shell">
+      <div class="backline">
+        <button class="ghost" onclick="showView('dashboard')">← Назад</button>
+        <div class="muted">${safeText(tr.title)}</div>
+      </div>
+      <div class="training-layout">
+        <div class="panel media-box">
+          <div class="media">
+            <div class="media-note">${safeText(tr.kind === 'micro' ? `${cur.variantTitle || 'Вариант 1'}` : tr.kind === 'scheme' ? 'Схема АД' : 'Материал')}</div>
+            <img class="${cur.type === 'micro' ? 'fullscreen-trigger' : ''}" src="${resolveImageUrl(cur)}" alt="${safeText(cur.name || cur.title || '')}" ${cur.type === 'micro' ? `onclick="openFullscreenImage('${resolveImageUrl(cur)}', '${safeText((cur.name || cur.title || '') + (cur.variantTitle ? ' · ' + cur.variantTitle : ''))}')"` : ''} />
+          </div>
+        </div>
+        <div class="panel qa">
+          ${renderQuestionHeader(cur, 'training')}
+          <div class="field">${right}</div>
+          ${canGrade ? `
+            <div class="grade-panel">
+              <div class="label">Поставьте себе оценку</div>
+              <div class="grade-buttons">${gradeButtons}</div>
+              <div class="grade-suggest">Рекомендация: <strong>${suggested}/5</strong>. ${safeText(tr.evaluation?.detail || '')}</div>
+            </div>
+          ` : `
+            <div class="inline-actions">
+              <button type="button" class="primary" onclick="submitTrainingAnswer()">Проверить</button>
+              <button type="button" class="ghost" onclick="finishTraining()">Завершить</button>
+            </div>
+          `}
+          <div class="feedback ${feedbackClass}">
+            <div class="title">${safeText(feedbackTitle)}</div>
+            <div class="small">${safeText(tr.resultDetail || '')}</div>
+          </div>
+          <div class="tiny">Оценено: ${tr.answered || 0} · На «5»: ${tr.correct || 0} · В очереди: ${tr.queue.length}</div>
+        </div>
+      </div>
+      ${showDescription ? `
+        <div class="prep-description training-wide">
+          <h4>Описание препарата</h4>
+          <div class="desc-text">${descriptionText}</div>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+function renderExam() {
+  const ex = state.exam;
+  if (!ex) return '';
+  const cur = currentExamItem();
+  const timer = formatTime(remainingExamTime());
+
+  if (ex.finished) {
+    const answers = ex.answers || [];
+    const items = ex.ticket || [];
+    const grades = items.map((item, idx) => {
+      const a = answers[idx] || {};
+      return clampGrade(a.grade ?? a.suggestedGrade ?? (item.type === 'theory' ? 3 : item.type === 'scheme' ? 2 : 2));
+    });
+    const avg = grades.length ? (grades.reduce((s, v) => s + v, 0) / grades.length) : 0;
+    const avgText = avg ? avg.toFixed(2) : '0.00';
+    const finalMark = avg ? Math.round(avg) : 0;
+    return `
+      <div class="shell">
+        <div class="backline">
+          <button class="ghost" onclick="showView('dashboard')">← Назад</button>
+          <div class="muted">Экзамен · итоговая оценка</div>
+          <div class="timer">${timer}</div>
+        </div>
+        <div class="panel pad">
+          <h2 style="margin-top:0">Экзамен завершён</h2>
+          <p class="muted">Средний балл: <strong>${avgText}</strong>. Округлённый итог: <strong>${finalMark}</strong>.</p>
+          <div class="results">
+            ${items.map((item, idx) => {
+              const a = answers[idx] || {};
+              const grade = clampGrade(a.grade ?? a.suggestedGrade ?? (item.type === 'theory' ? 3 : item.type === 'scheme' ? 2 : 2));
+              const label = item?.type === 'micro' ? (item?.name || item?.title || '') : item?.type === 'scheme' ? (item?.title || '') : item?.question || '';
+              const detail = a?.detail || 'Ответ не зафиксирован.';
+              const suggestion = a?.suggestedGrade ? `Рекомендация: ${a.suggestedGrade}/5.` : '';
+              return `
+                <div class="result-row ${grade === 5 ? 'ok' : 'bad'}">
+                  <div style="flex:1">
+                    <strong>№${idx + 1}. ${safeText(label)}</strong>
+                    <div class="tiny">${safeText(detail)}</div>
+                    <div class="grade-panel" style="margin-top:10px">
+                      <div class="label">Оценка за этот номер</div>
+                      <div class="grade-buttons">
+                        ${allowedGradesForKind(item.type).map(g => `<button type="button" class="grade-btn ${grade===g?'active':''}" onclick="setExamGrade(${idx}, ${g})">${g}</button>`).join('')}
+                      </div>
+                      <div class="grade-suggest">Текущая оценка: <strong>${grade}/5</strong>. ${safeText(suggestion)}</div>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+          <div class="inline-actions" style="margin-top:14px">
+            <button class="primary" onclick="finalizeExamGrades()">Подтвердить итог и вернуться на дашборд</button>
+            <button class="ghost" onclick="startExam()">Пройти заново</button>
+            <button class="ghost" onclick="showView('dashboard')">На дашборд</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  if (!cur) return '';
+  let right = '';
+  if (cur.type === 'micro') {
+    right = `
+      <div class="field"><label>Название препарата</label><input placeholder="Введите название..." oninput="state.exam.currentAttempt.name=this.value" /></div>
+      <div class="field"><label>Типичная окраска</label>
+        <select onchange="state.exam.currentAttempt.stain=this.value">
+          <option value="">Выберите окраску</option>
+          ${['Гематоксилин-эозин','Романовский–Гимза','Осмий','Орсеин','Импрегнация серебром','Пас','Судан'].map(v => `<option>${v}</option>`).join('')}
+        </select>
+      </div>
+    `;
+  } else if (cur.type === 'scheme') {
+    const keys = Object.keys(cur.labels);
+    right = `
+      <div class="field"><label>Название схемы</label><input placeholder="Введите название схемы" oninput="state.exam.currentAttempt.schemeTitle=this.value" /></div>
+      <div class="scheme-grid">
+        ${keys.map(k => `<div class="field"><label>${safeText(k)}</label><input placeholder="Подпись" data-scheme-key="${safeText(k)}" /></div>`).join('')}
+      </div>
+    `;
+  } else {
+    right = `<div class="field"><label>Ответ</label><textarea placeholder="Введите ответ" oninput="state.exam.currentAttempt.answer=this.value"></textarea></div>`;
+  }
+  return `
+    <div class="shell">
+      <div class="backline">
+        <button class="ghost" onclick="showView('dashboard')">← Назад</button>
+        <div class="muted">Экзаменационный билет</div>
+        <div class="timer" id="examTimer">${timer}</div>
+      </div>
+      <div class="training-layout">
+        <div class="panel media-box">
+          <div class="media">
+            <div class="media-note">Экзамен · открыть материал</div>
+            <img class="${cur.type === 'micro' ? 'fullscreen-trigger' : ''}" src="${resolveImageUrl(cur)}" alt="${safeText(cur.name || cur.title || '')}" ${cur.type === 'micro' ? `onclick="openFullscreenImage('${resolveImageUrl(cur)}', '${safeText((cur.name || cur.title || '') + (cur.variantTitle ? ' · ' + cur.variantTitle : ''))}')"` : ''} />
+          </div>
+        </div>
+        <div class="panel qa">
+          ${renderQuestionHeader(cur, 'exam')}
+          <div class="field">${right}</div>
+          <div class="inline-actions">
+            <button class="ghost" onclick="nextExamQuestion()">Сохранить и далее</button>
+            <button class="danger" onclick="finishExam(false)">Завершить экзамен</button>
+          </div>
+          <div class="tiny">Вопрос ${ex.currentIndex + 1} из ${ex.ticket.length}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function setExamGrade(index, grade) {
+  const ex = state.exam;
+  if (!ex || ex.finalized || !ex.answers || !ex.answers[index]) return;
+  ex.answers[index].grade = clampGrade(grade);
+  render();
+}
+const summaryTopics = [
+  {semester: 1, title: 'Введение в гистологию', category: 'База', content: ''},
+  {semester: 1, title: 'Техника гистологического исследования', category: 'База', content: ''},
+  {semester: 1, title: 'Цитология', category: 'Общая гистология', content: ''},
+  {semester: 1, title: 'Общая эмбриология', category: 'Эмбриология', content: ''},
+  {semester: 1, title: 'Эпителиальные ткани', category: 'Ткани', content: ''},
+  {semester: 1, title: 'Кровь', category: 'Ткани', content: ''},
+  {semester: 1, title: 'Собственно соединительные ткани', category: 'Ткани', content: ''},
+  {semester: 1, title: 'Скелетные соединительные ткани', category: 'Ткани', content: ''},
+  {semester: 1, title: 'Мышечные ткани', category: 'Ткани', content: ''},
+  {semester: 1, title: 'Нервная ткань', category: 'Нервная система', content: ''},
+  {semester: 1, title: 'Нервная система', category: 'Нервная система', content: ''},
+  {semester: 1, title: 'Органы чувств', category: 'Нервная система', content: ''},
+  {semester: 2, title: 'Сердечно-сосудистая система', category: 'Органы и системы', content: ''},
+  {semester: 2, title: 'Органы кроветворения', category: 'Органы и системы', content: ''},
+  {semester: 2, title: 'Эндокринная система', category: 'Органы и системы', content: ''},
+  {semester: 2, title: 'Пищеварительная система', category: 'Органы и системы', content: ''},
+  {semester: 2, title: 'Дыхательная система', category: 'Органы и системы', content: ''},
+  {semester: 2, title: 'Кожный покров', category: 'Органы и системы', content: ''},
+  {semester: 2, title: 'Выделительная система', category: 'Органы и системы', content: ''},
+  {semester: 2, title: 'Мужская половая система', category: 'Половая система', content: `<div class="prep-description" style="display:block; line-height:1.72; font-size:15px; color:var(--soft);">
+
+  <div class="prep-html-card wide">
+    <h2>Мужская половая система</h2>
+    <p>Мужская половая система — это совокупность органов, которые обеспечивают образование мужских половых клеток, их созревание, транспорт, выведение, формирование спермы, участие в половом акте и эндокринную регуляцию мужского организма. В её состав входят яички, или семенники, семявыносящие пути, добавочные железы и мужской половой член.</p>
+    <p>Главная функциональная цепь темы выглядит так: в извитых семенных канальцах семенника образуются сперматозоиды; в интерстиции семенника клетки Лейдига синтезируют тестостерон; в придатке яичка сперматозоиды дозревают и приобретают функциональную активность; в семявыносящем протоке они быстро продвигаются при эякуляции; семенные пузырьки, простата и бульбоуретральные железы добавляют секреты, формирующие жидкую часть спермы.</p>
+    <p>Поэтому мужская половая система — это не набор отдельных органов, а единая система: <b>сперматогенез → дозревание сперматозоидов → транспорт → добавление секретов → эякуляция → подготовка к оплодотворению</b>.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Общий план органов мужской половой системы</h3>
+    <p>К органам мужской половой системы относятся <b>яички</b> и <b>семявыносящие пути</b>: придатки яичек и семявыносящие протоки. Кроме них, выделяют <b>добавочные железы</b>: семенные пузырьки, предстательную железу и бульбоуретральные железы. Отдельно рассматривается <b>мужской половой член</b>, который обеспечивает введение спермы в женские половые пути.</p>
+    <p>Яички являются мужскими гонадами. Их паренхима построена из многочисленных канальцев. Одни канальцы являются сперматогенными, потому что в их стенке образуются сперматозоиды. Другие канальцы относятся к начальному отделу семявыносящих путей и обеспечивают выведение сперматозоидов из яичка.</p>
+    <p>В строме между канальцами располагаются сосуды, соединительнотканные элементы и интерстициальные эндокринные клетки — клетки Лейдига. Они синтезируют тестостерон и его производные. Поэтому яичко имеет две основные функции: <b>генеративную</b>, связанную с образованием сперматозоидов, и <b>эндокринную</b>, связанную с синтезом мужских половых гормонов.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Семенник: расположение, оболочки и дольки</h3>
+    <p>Семенник, или яичко, располагается в мошонке. Это важно функционально, потому что нормальный сперматогенез требует температуры ниже температуры брюшной полости. Для созревания сперматид оптимальна пониженная температура; поэтому вынесение яичек за пределы брюшной полости является условием нормального образования сперматозоидов.</p>
+    <p>Снаружи яичко окружено несколькими оболочками. Для гистологии особенно важны две оболочки, непосредственно связанные с яичком: <b>висцеральный листок влагалищной серозной оболочки</b> и <b>белочная оболочка</b>. Белочная оболочка построена из плотной волокнистой соединительной ткани.</p>
+    <p>Белочная оболочка не просто покрывает орган снаружи. Она продолжается внутрь яичка и образует <b>средостение яичка</b>, а также соединительнотканные перегородки. Эти перегородки расходятся от средостения и делят паренхиму яичка примерно на 250 долек.</p>
+    <p>В каждой дольке находится от одного до четырёх извитых семенных канальцев. Именно в них происходит сперматогенез. Между канальцами располагается интерстициальная ткань, где находятся кровеносные и лимфатические сосуды, клетки соединительной ткани и клетки Лейдига.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Канальцевая система яичка</h3>
+    <p>Канальцевая система яичка начинается с <b>извитых семенных канальцев</b>. Это главные сперматогенные канальцы, в стенке которых образуются сперматозоиды. Каждый извитой семенной каналец представляет собой многократно сложенную петлю. Поэтому на препарате один и тот же каналец может несколько раз попадать в плоскость среза, и видимые округлые или овальные сечения не обязательно принадлежат разным канальцам.</p>
+    <p>Возле средостения концы извитых семенных канальцев переходят в <b>прямые канальцы яичка</b>. Далее прямые канальцы переходят в <b>канальцы сети яичка</b>, расположенные в толще средостения. От сети яичка отходят <b>выносящие канальцы</b>, которые направляются к придатку яичка.</p>
+    <p>Выносящие канальцы впадают в <b>проток придатка</b>. Проток придатка многократно изгибается и постепенно идёт от головки придатка к его хвосту. В хвосте придатка он переходит в <b>семявыносящий проток</b>. Так формируется последовательная система выведения сперматозоидов: извитой семенной каналец → прямой каналец → сеть яичка → выносящие канальцы → проток придатка → семявыносящий проток.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Извитой семенной каналец: общий план строения</h3>
+    <p>Извитой семенной каналец — основная структурно-функциональная единица семенника. Его стенка состоит из двух основных компонентов: <b>собственной оболочки</b> и <b>эпителио-сперматогенного слоя</b>. Собственная оболочка расположена снаружи и отделяет сперматогенный эпителий от интерстициальной ткани. Эпителио-сперматогенный слой обращён к просвету канальца и составляет основную часть толщины его стенки.</p>
+    <p>На препарате семенника извитые семенные канальцы выглядят как многочисленные округлые или овальные структуры. Внутри каждого канальца виден просвет, а вокруг просвета — многорядный эпителио-сперматогенный слой. В этом слое находятся клетки Сертоли и сперматогенные клетки разных стадий созревания.</p>
+    <p>Вокруг канальцев располагается интерстиций. Он содержит сосуды, рыхлую соединительную ткань и клетки Лейдига. Поэтому при описании препарата семенника обязательно нужно указывать не только канальцы, но и межканальцевую интерстициальную ткань.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Собственная оболочка извитого семенного канальца</h3>
+    <p>Собственная оболочка извитого семенного канальца имеет сложное строение. В ней выделяют наружный слой фиброцитоподобных клеток, наружный неклеточный слой с коллагеновыми волокнами и аморфным матриксом, слой миоидных клеток и внутренний неклеточный слой, прилежащий к базальной мембране эпителио-сперматогенного слоя.</p>
+    <p>Наиболее важными клетками собственной оболочки являются <b>миоидные клетки</b>. Это клетки веретенообразной формы, которые связаны друг с другом и способны к сокращению. Их сокращение способствует медленному продвижению жидкости и сперматозоидов по семенному канальцу в сторону сети яичка.</p>
+    <p>Миоидные клетки имеют не только сократительное значение. Они участвуют в барьерной функции собственной оболочки, через них происходит интенсивный обмен веществ между сперматогенным эпителием и кровью или лимфой, а также они выделяют паракринные факторы, влияющие на клетки Сертоли.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Эпителио-сперматогенный слой</h3>
+    <p>Эпителио-сперматогенный слой состоит из двух принципиально разных клеточных компонентов. Первый компонент — <b>клетки Сертоли</b>, то есть поддерживающие эпителиоциты. Они являются собственно эпителиальными клетками канальца. Второй компонент — <b>сперматогенные клетки</b>, то есть клетки мужской половой линии.</p>
+    <p>Сперматогенные клетки находятся на разных стадиях развития. У базальной мембраны располагаются сперматогонии. Несколько выше находятся сперматоциты. Ближе к просвету расположены сперматиды, а в самом просвете или у его края — сперматозоиды.</p>
+    <p>Такое расположение отражает направление созревания: клетки постепенно перемещаются от базальной мембраны к просвету. Поэтому препарат семенника нужно читать как «лестницу созревания»: от сперматогоний у основания эпителия до сперматозоидов у просвета канальца.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Клетки Сертоли: морфология</h3>
+    <p>Клетки Сертоли, или сустентоциты, — это поддерживающие эпителиоциты извитых семенных канальцев. Каждая клетка Сертоли простирается на всю толщину эпителио-сперматогенного слоя: от базальной мембраны до просвета канальца.</p>
+    <p>Базальная часть клетки Сертоли лежит на базальной мембране и содержит ядро, а также большую часть органелл. Апикальная часть образует многочисленные цитоплазматические отростки, направленные к просвету канальца. Между этими отростками располагаются развивающиеся сперматогенные клетки.</p>
+    <p>На обычном препарате полностью увидеть клетку Сертоли трудно, потому что её апикальные отростки маскируются сперматогенными клетками. Обычно лучше различима базальная часть с ядром. Однако функционально нужно помнить: клетка Сертоли контактирует сразу с несколькими сперматогенными клетками разных стадий развития.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Клетки Сертоли: функции</h3>
+    <p>Клетки Сертоли выполняют <b>опорную функцию</b>: своими отростками они создают каркас, в котором фиксируются развивающиеся сперматогенные клетки. Они выполняют <b>трофическую функцию</b>: питание клеток, находящихся за гематотестикулярным барьером, осуществляется через клетки Сертоли.</p>
+    <p>Они выполняют <b>фагоцитарную функцию</b>: поглощают погибающие сперматогенные клетки и резидуальные тельца, отделяющиеся от поздних сперматид при спермиогенезе. Кроме того, клетки Сертоли секретируют жидкость в просвет семенных канальцев, в которую после спермиации попадают сперматозоиды.</p>
+    <p>Клетки Сертоли также координируют развитие сперматогенных клеток и их перемещение к просвету канальца. Они образуют транспортные белки: <b>андрогенсвязывающий белок</b>, необходимый для действия тестостерона на развивающиеся клетки, тестикулярный альбумин и трансферрин. Кроме того, они синтезируют <b>ингибин</b>, который тормозит секрецию ФСГ гипофизом по принципу отрицательной обратной связи.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Гематотестикулярный барьер</h3>
+    <p>Гематотестикулярный барьер — это система структур, которая отделяет развивающиеся сперматоциты и сперматиды от иммунной системы и создаёт особую среду для мейоза и спермиогенеза. Он необходим, потому что сперматоциты и сперматиды появляются после формирования иммунной системы и могли бы восприниматься организмом как чужеродные.</p>
+    <p>В состав гематотестикулярного барьера входят эндотелий капилляров и его базальная мембрана, интерстициальные прослойки, лимфатический синусоидный «чехлик» вокруг семенного канальца, собственная оболочка канальца, базальная мембрана эпителио-сперматогенного слоя и плотные контакты между клетками Сертоли.</p>
+    <p>Наиболее важным звеном барьера являются плотные контакты между клетками Сертоли. Они делят эпителио-сперматогенный слой на два компартмента: <b>базальный</b> и <b>адлюминальный</b>. В базальном компартменте находятся сперматогонии и ранние сперматоциты, а в адлюминальном — более зрелые сперматоциты, сперматиды и сперматозоиды.</p>
+    <p>При перемещении созревающих сперматоцитов из базального компартмента в адлюминальный барьер не разрушается полностью. Контакты между клетками Сертоли перестраиваются по принципу «шлюза»: снизу контакт замыкается, сверху прежний контакт размыкается, и изоляция адлюминального отдела сохраняется.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Клетки Лейдига</h3>
+    <p>Клетки Лейдига, или интерстициальные гландулоциты, располагаются в рыхлой соединительной ткани между извитыми семенными канальцами. Они являются эндокринными клетками семенника и синтезируют тестостерон и его производные.</p>
+    <p>Тестостерон необходим для поддержания сперматогенеза, развития мужских половых органов, формирования вторичных половых признаков и нормальной функции мужской репродуктивной системы. Внутри семенного канальца действие тестостерона связано с клетками Сертоли и андрогенсвязывающим белком.</p>
+    <p>Морфологически клетки Лейдига обычно крупнее обычных соединительнотканных клеток. Они имеют округлую или полигональную форму, светлую цитоплазму и хорошо развитые органеллы, характерные для стероидсинтезирующих клеток: гладкую эндоплазматическую сеть и митохондрии.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Сперматогенные клетки</h3>
+    <p><b>Сперматогонии</b> — наименее зрелые клетки сперматогенного ряда. Они лежат у базальной мембраны и способны к митотическим делениям. Среди них выделяют стволовые сперматогонии, поддерживающие запас клеток, и сперматогонии, вступившие в сперматогенез.</p>
+    <p><b>Сперматоциты</b> — клетки, находящиеся в мейозе. Они крупнее сперматогоний, располагаются несколько дальше от базальной мембраны и имеют ядра с хорошо выраженным рисунком хроматина. На препарате особенно часто встречаются первичные сперматоциты, потому что первое деление мейоза длительное.</p>
+    <p><b>Сперматиды</b> — гаплоидные клетки, которые уже не делятся, а превращаются в сперматозоиды. Ранние сперматиды округлые, небольшие, со светлым ядром. Средние сперматиды становятся овальными и имеют более тёмное ядро. Поздние сперматиды мелкие, с плотным ядром и формирующимся жгутиком, лежат ближе к просвету канальца.</p>
+    <p><b>Сперматозоиды</b> находятся в просвете канальца или у его края. Они близки к поздним сперматидам, но уже отделены от эпителио-сперматогенного слоя и направляются дальше по системе семявыносящих путей.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Развитие яичка и начало сперматогенной линии</h3>
+    <p>Сперматогенез у взрослого человека является продолжением более раннего процесса, который начинается ещё в эмбриогенезе. Первичные половые клетки, или гоноциты, сначала оказываются в стенке желточного мешка, затем мигрируют к первичной почке и внедряются в половые валики.</p>
+    <p>Эпителий половых валиков образует половые шнуры. Внутрь этих шнуров проникают гоноциты. Под влиянием окружающих соматических клеток направление их развития определяется в сторону мужской половой линии, и они становятся пресперматогониями.</p>
+    <p>Половые шнуры дают начало семенным канальцам, прямым канальцам и канальцам сети яичка. Клетки Сертоли развиваются из эпителия половых шнуров. Выносящие канальцы яичка образуются из канальцев первичной почки, а проток придатка и семявыносящий проток — из мезонефрального протока.</p>
+    <p>После рождения канальцы ещё некоторое время незрелые. В первые годы жизни они могут быть представлены клеточными тяжами. Позже появляется просвет, а в период полового созревания начинают активно функционировать клетки Лейдига, усиливается синтез тестостерона и сперматогонии вступают в полноценный сперматогенез.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Собственно сперматогенез</h3>
+    <p>Собственно сперматогенез начинается, когда часть сперматогоний вступает на путь необратимой дифференцировки. Выделяют четыре этапа: <b>митотическое размножение сперматогоний</b>, <b>мейотическое деление сперматоцитов</b>, <b>спермиогенез</b>, то есть морфологическое созревание сперматид, и <b>дозревание сперматозоидов в придатке яичка</b>.</p>
+    <p>На этапе митотического размножения сперматогонии многократно делятся. Важная особенность состоит в том, что после делений между дочерними клетками сохраняются цитоплазматические мостики. Поэтому потомство одной исходной сперматогонии развивается как клональный синцитий. Это обеспечивает синхронность созревания группы клеток.</p>
+    <p>Мейоз переводит клетку от диплоидного набора к гаплоидному. В первом делении мейоза расходятся гомологичные хромосомы, а во втором — сестринские хроматиды. В результате образуются гаплоидные сперматиды. Часть сперматид несёт X-хромосому, часть — Y-хромосому.</p>
+    <p>Профаза первого деления мейоза особенно важна. В ней происходят конъюгация гомологичных хромосом, образование синаптонемального комплекса, кроссинговер и обмен участками между гомологичными хромосомами. Это обеспечивает генетическое разнообразие будущих сперматозоидов.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Спермиогенез</h3>
+    <p>Спермиогенез — это превращение сперматиды в сперматозоид. Это не деление, а глубокая морфологическая перестройка клетки. В ходе спермиогенеза сперматиды превращаются из округлых клеток в высокоспециализированные клетки с головкой и хвостом.</p>
+    <p>В ядре сперматиды происходит сильное уплотнение хроматина. Гистоны заменяются более основными белками — протаминами, хроматин конденсируется, объём ядра резко уменьшается, и ядро становится основой головки сперматозоида.</p>
+    <p>Из аппарата Гольджи формируется <b>акросома</b>. Она располагается на переднем полюсе головки и содержит ферменты, необходимые для проникновения сперматозоида через оболочки яйцеклетки: акрозин, гиалуронидазу, коллагеназу и другие.</p>
+    <p>Одна из центриолей даёт начало базальному тельцу жгутика. От него формируется аксонема, имеющая типичное строение: девять пар периферических микротрубочек и одна пара центральных. Митохондрии выстраиваются спирально вокруг начального отдела жгутика и формируют митохондриальную оболочку промежуточной части хвоста.</p>
+    <p>Почти вся цитоплазма удаляется. Остаток цитоплазмы образует резидуальное тельце, которое отделяется и фагоцитируется клетками Сертоли. Завершается спермиогенез спермиацией — выходом сперматозоидов в просвет семенного канальца.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Дозревание сперматозоидов после выхода из канальца</h3>
+    <p>После спермиации сперматозоиды находятся в просвете семенного канальца, но ещё не обладают полной функциональной зрелостью. Дальнейшее дозревание происходит в придатке яичка. В головке придатка продолжается морфофункциональная подготовка, а в хвосте придатка сперматозоиды приобретают подвижность и способность к последующему участию в оплодотворении.</p>
+    <p>В придатке на поверхности сперматозоидов сорбируются гликопротеины, необходимые для взаимодействия с яйцеклеткой. В женских половых путях под влиянием секретов простаты, семенных пузырьков и самих женских путей усиливаются подвижность, метаболизм и готовность сперматозоидов к акросомальной реакции.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Гормональная регуляция семенника</h3>
+    <p>Регуляция семенника связана с гипоталамо-гипофизарно-гонадной системой. Лютеинизирующий гормон стимулирует клетки Лейдига к синтезу тестостерона. Фолликулостимулирующий гормон действует главным образом на клетки Сертоли.</p>
+    <p>Тестостерон необходим для сперматогенеза, но его действие в канальцах реализуется через клетки Сертоли и андрогенсвязывающий белок. Клетки Сертоли синтезируют ингибин, который подавляет продукцию ФСГ гипофизом. Таким образом, клетки Лейдига и Сертоли образуют функциональную пару: одни обеспечивают андрогенный фон, другие создают условия для развития половых клеток.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Придаток яичка</h3>
+    <p>Придаток яичка прилежит к яичку и содержит выносящие канальцы и проток придатка. Его функции: дозревание сперматозоидов, изменение их поверхности, депонирование, концентрация и продвижение. Эпителиоциты придатка секретируют жидкость, которая участвует в формировании среды для сперматозоидов.</p>
+    <p>Выносящие канальцы имеют характерный неровный контур просвета. Это связано с тем, что в их эпителии чередуются высокие реснитчатые клетки и более низкие секреторные клетки с микроворсинками. Высокие клетки выступают в просвет, низкие формируют углубления, поэтому просвет выглядит волнистым или зубчатым.</p>
+    <p>Проток придатка имеет более ровный просвет и двухрядный эпителий. Высокие клетки обращены к просвету, а низкие вставочные клетки лежат у базальной мембраны. Вокруг канальцев располагаются гладкие миоциты, участвующие в продвижении содержимого, особенно при семяизвержении.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Семявыносящий проток</h3>
+    <p>Семявыносящий проток является продолжением протока придатка. Он начинается от хвоста придатка, проходит в составе семенного канатика, идёт через паховый канал, достигает мочевого пузыря и впадает в предстательную часть мочеиспускательного канала.</p>
+    <p>Стенка семявыносящего протока имеет слизистую, мышечную и адвентициальную оболочки. Слизистая образует продольные складки, поэтому просвет на срезе часто выглядит звёздчатым. Эпителий обычно двухрядный, с высокими клетками и базальными клетками.</p>
+    <p>Мышечная оболочка особенно мощная. Она состоит из трёх слоёв гладких миоцитов: внутреннего продольного, среднего циркулярного и наружного продольного. Такое строение необходимо для быстрого продвижения сперматозоидов во время эякуляции.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Семенные пузырьки</h3>
+    <p>Семенные пузырьки — парные добавочные железы мужской половой системы, расположенные позади мочевого пузыря. Их секрет составляет значительную часть жидкой части спермы и содержит вещества, необходимые для питания и поддержания активности сперматозоидов.</p>
+    <p>Важный компонент секрета семенных пузырьков — фруктоза. Она служит энергетическим субстратом для сперматозоидов. Кроме того, секрет семенных пузырьков содержит белки, вещества, влияющие на вязкость спермы, и другие компоненты, необходимые для нормального функционирования сперматозоидов.</p>
+    <p>Гистологически семенной пузырёк представляет собой сильно извитую железистую трубку со складчатой слизистой. Складки слизистой многочисленные, ветвящиеся, местами сближенные, поэтому просвет на препарате выглядит сложным, ячеистым и лабиринтным. Мышечная оболочка способствует выведению секрета.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Предстательная железа</h3>
+    <p>Предстательная железа, или простата, — добавочная железа мужской половой системы, расположенная вокруг начальной части мочеиспускательного канала. Гистологически простата является <b>железисто-мышечным органом</b>: в ней выражены железистые отделы и фиброзно-мышечная строма.</p>
+    <p>Железы простаты имеют различную форму и размеры. Их просветы могут быть округлыми, овальными, неправильными, расширенными. Эпителий желёз секреторный. Секрет простаты входит в состав спермы, участвует в её разжижении, поддерживает подвижность и функциональную готовность сперматозоидов.</p>
+    <p>Строма простаты содержит соединительную ткань и большое количество гладких миоцитов. Сокращение гладкомышечных клеток способствует выведению секрета простаты во время эякуляции. Поэтому простату нельзя описывать только как железу: правильно говорить, что это железисто-мышечный орган.</p>
+    <p>В просветах желез простаты часто встречаются <b>простатические конкреции</b>, или амилоидные тельца. Они выглядят как округлые плотные образования, часто имеют слоистое строение и образуются из сгущённого секрета и клеточного материала. Конкреции помогают узнать простату на препарате, но их отсутствие не исключает простату.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Бульбоуретральные железы</h3>
+    <p>Бульбоуретральные, или куперовы, железы — небольшие добавочные железы. Они выделяют слизистый секрет, который подготавливает мочеиспускательный канал к прохождению спермы и входит в состав предэякуляторной жидкости.</p>
+    <p>На уровне общей темы их нужно помнить как третью добавочную железу мужской половой системы наряду с семенными пузырьками и простатой. Их секрет имеет преимущественно слизистый характер и выполняет защитно-смазывающую функцию.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Мужской половой член</h3>
+    <p>Мужской половой член обеспечивает введение спермы в женские половые пути. Его основа — эректильная ткань, содержащая сосудистые пространства, соединительнотканные перегородки и гладкомышечные элементы. При наполнении кровью кавернозных пространств возникает эрекция.</p>
+    <p>Мочеиспускательный канал проходит в губчатом теле полового члена. Он проводит мочу и сперму, но в разные функциональные моменты. Поэтому мужская уретра относится одновременно к мочевой и половой системам.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Препарат: семенник</h3>
+    <p>Препарат семенника при окраске гематоксилином и эозином узнаётся по множеству округлых и овальных срезов извитых семенных канальцев. В стенке каждого канальца видна собственная оболочка и толстый эпителио-сперматогенный слой.</p>
+    <p>В эпителио-сперматогенном слое можно увидеть клетки разных стадий сперматогенеза. У базальной мембраны лежат сперматогонии, выше — крупные сперматоциты, ближе к просвету — сперматиды и сперматозоиды. Между канальцами располагается интерстиций с сосудами и клетками Лейдига.</p>
+    <p>В описании препарата обязательно нужно указать: белочную оболочку, дольки, извитые семенные канальцы, собственную оболочку канальца, эпителио-сперматогенный слой, клетки Сертоли, сперматогенные клетки, интерстиций и клетки Лейдига.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Препарат: простата</h3>
+    <p>Препарат простаты узнаётся по железисто-мышечному строению. В поле зрения видны железы разной формы и размера, разделённые фиброзно-мышечной стромой. Просветы желёз могут содержать секрет и простатические конкреции.</p>
+    <p>Простата отличается от семенника тем, что в ней нет извитых семенных канальцев и сперматогенного эпителия. Она отличается от семенного пузырька тем, что семенной пузырёк выглядит как сильно складчатая железистая трубка, а простата состоит из множества железистых отделов в фиброзно-мышечной строме.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Препарат: придаток яичка</h3>
+    <p>Придаток яичка узнаётся по выносящим канальцам и протоку придатка. Выносящие канальцы имеют неровный контур просвета из-за чередования высоких реснитчатых и низких секреторных клеток. Проток придатка имеет более ровный просвет и двухрядный эпителий.</p>
+    <p>Вокруг канальцев располагаются гладкие миоциты и соединительная ткань. Главная функция придатка — дозревание, концентрация, хранение и продвижение сперматозоидов.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Препарат: семявыносящий проток</h3>
+    <p>Семявыносящий проток узнаётся по складчатой слизистой и очень мощной мышечной оболочке. Просвет часто выглядит звёздчатым из-за продольных складок слизистой. Эпителий двухрядный.</p>
+    <p>Мышечная оболочка состоит из трёх слоёв гладких миоцитов. Такой мощный мышечный слой нужен для быстрого продвижения сперматозоидов при семяизвержении.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Как отличать препараты мужской половой системы</h3>
+    <p><b>Семенник</b> узнаётся по многочисленным извитым семенным канальцам, эпителио-сперматогенному слою и интерстицию с клетками Лейдига. Если видны канальцы со сперматогенными клетками разных стадий, это семенник.</p>
+    <p><b>Придаток яичка</b> узнаётся по канальцам с неровным просветом и двухрядным эпителием. Его функция связана с дозреванием и продвижением сперматозоидов.</p>
+    <p><b>Семявыносящий проток</b> узнаётся по звёздчатому просвету, складчатой слизистой и очень мощной трёхслойной мышечной оболочке.</p>
+    <p><b>Простата</b> узнаётся по железам в фиброзно-мышечной строме и возможным конкрециям. В ней нет сперматогенного эпителия.</p>
+    <p><b>Семенной пузырёк</b> узнаётся по сложной складчатой слизистой с ячеистым, лабиринтным просветом и секреторным эпителием.</p>
+  </div>
+
+  <div class="prep-html-card wide">
+    <h3>Итоговая схема темы</h3>
+    <p>Мужская половая система работает как единая цепь. В семеннике в извитых семенных канальцах образуются сперматозоиды. Клетки Сертоли поддерживают сперматогенез, формируют гематотестикулярный барьер и регулируют развитие половых клеток. Клетки Лейдига синтезируют тестостерон. В придатке яичка сперматозоиды дозревают и приобретают функциональную активность. В семявыносящем протоке они быстро транспортируются при эякуляции. Семенные пузырьки, простата и бульбоуретральные железы добавляют секреты, формирующие жидкую часть спермы.</p>
+  </div>
+
+</div>`},
+  {semester: 2, title: 'Женская половая система', category: 'Половая система', content: ''},
+  {semester: 2, title: 'Эмбриология человека', category: 'Эмбриология', content: ''},
+];
+let activeSummaryTitle = '';
+
+function renderSummaryTopicCard(topic, index = 0) {
+  const hasContent = String(topic.content || '').trim().length > 0;
+  return `
+    <div class="note-card">
+      <div class="note-num">${String(index + 1).padStart(2, '0')}</div>
+      <div class="note-main">
+        <h4>${safeText(topic.title)}</h4>
+        <div class="note-meta">
+          <span class="note-chip">${safeText(topic.category)}</span>
+          <span class="note-chip ${hasContent ? '' : 'empty'}">${hasContent ? 'конспект добавлен' : 'пока пусто'}</span>
+        </div>
+      </div>
+      <div class="inline-actions">
+        <button class="ghost" onclick="openSummaryTopic('${safeText(topic.title)}')">Открыть</button>
+      </div>
+    </div>
+  `;
+}
+
+function openSummaryTopic(title) {
+  activeSummaryTitle = title;
+  openBank('notes');
+}
+
+function renderSummaryContent() {
+  if (!activeSummaryTitle) return '';
+  const topic = summaryTopics.find(t => t.title === activeSummaryTitle);
+  if (!topic) return '';
+  const content = String(topic.content || '').trim();
+  return `
+    <div class="note-content">
+      <h3>${safeText(topic.title)}</h3>
+      ${content || `<p>Конспект по этой теме пока не добавлен. Позже сюда можно вставить краткую теорию, ключевые моменты, частые вопросы и шаблон устного ответа.</p>`}
+    </div>
+  `;
+}
+
+function renderNotesBank() {
+  const first = summaryTopics.filter(t => t.semester === 1);
+  const second = summaryTopics.filter(t => t.semester === 2);
+  return `
+    <div class="notes-hero">
+      <h3>Конспекты по темам</h3>
+      <p>Здесь будет быстрый учебный маршрут по 1 и 2 семестру: ключевые моменты, краткая теория, частые вопросы и шаблон ответа. Часть тем уже заполнена, остальные постепенно добавляются.</p>
+    </div>
+    <div class="notes-layout">
+      <div class="notes-semester">
+        <h3>📘 1 семестр</h3>
+        <div class="notes-list">${first.map((topic, index) => renderSummaryTopicCard(topic, index)).join('')}</div>
+      </div>
+      <div class="notes-semester">
+        <h3>📗 2 семестр</h3>
+        <div class="notes-list">${second.map((topic, index) => renderSummaryTopicCard(topic, index)).join('')}</div>
+      </div>
+    </div>
+    ${renderSummaryContent()}
+  `;
+}
+
+function renderBank() {
+  const cat = state.bankCategory;
+  const map = {
+    micro: {title:'Банк препаратов', items: allMicroBase(), subtitle:'Микрофотографии, названия, окраски, описание и варианты.'},
+    theory: {title:'Теоретические вопросы', items: allTheory(), subtitle:'Текстовые вопросы с эталонными ответами.'},
+    task: {title:'Банк задач', items: allTasks(), subtitle:'Контрольные задачи и решения.'},
+    scheme: {title:'Банк схем', items: allSchemes(), subtitle:'Схемы с маркировкой элементов.'},
+    notes: {title:'Конспекты', items: summaryTopics, subtitle:'Структура тем по 1 и 2 семестру. Конспекты можно будет постепенно заполнять.'},
+  };
+  const data = map[cat] || map.micro;
+  const cardHtml = cat === 'notes' ? '' : data.items.map(item => {
+    const learned = learnedSet().has(item.id);
+    if (cat === 'micro' || cat === 'scheme') {
+      return `
+        <div class="bank-card">
+          <img class="thumb" src="${resolveImageUrl(item)}" alt="${safeText(item.name || item.title)}" ${cat === 'micro' ? `onclick="openBankItem('${item.id}')"` : ''} />
+          <div class="content">
+            <div class="row">
+              <h4>${safeText(item.name || item.title)}</h4>
+              <span class="badge ${learned ? 'good' : 'warn'}">${learned ? '✓ Выучено' : 'В банке'}</span>
+            </div>
+            <p><strong>Окраска:</strong> ${safeText(item.stain || '—')}</p>
+            ${cat === 'scheme' ? `<p><strong>Подписи:</strong> ${safeText(Object.entries(item.labels || {}).map(([k,v]) => `${k}=${v}`).join('; '))}</p>` : ''}
+            <div class="inline-actions" style="margin-top:10px">
+              <button class="ghost" onclick="toggleLearned('${item.id}')">${learned ? 'Снять пройдено' : 'Отметить пройденным'}</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    return `
+      <div class="card">
+        <div class="card-top">
+          <div>
+            <h4>${safeText(item.question)}</h4>
+            <p>${safeText(item.answerVariants ? item.answerVariants[0] : item.answer)}</p>
+          </div>
+          <span class="badge ${learned ? 'good' : 'dev'}">${learned ? '✓ Выучено' : 'Банк'}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+  return `
+    <div class="shell">
+      <div class="backline">
+        <button class="ghost" onclick="showView('dashboard')">← Назад</button>
+        <div class="muted">${data.title}</div>
+      </div>
+      <div class="panel pad">
+        <div class="bank-toolbar">
+          <button class="tab ${cat==='micro'?'active':''}" onclick="openBank('micro')">Препараты</button>
+          <button class="tab ${cat==='theory'?'active':''}" onclick="openBank('theory')">Теоретические вопросы</button>
+          <button class="tab ${cat==='task'?'active':''}" onclick="openBank('task')">Задачи</button>
+          <button class="tab ${cat==='scheme'?'active':''}" onclick="openBank('scheme')">Схемы</button>
+          <button class="tab ${cat==='notes'?'active':''}" onclick="openBank('notes')">Конспекты</button>
+        </div>
+        <p class="muted">${data.subtitle}</p>
+      </div>
+      <div style="height:14px"></div>
+      ${cat === 'micro' ? (() => {
+        const totalMicro = data.items.length;
+        const learnedMicro = data.items.filter(i => learnedSet().has(i.id)).length;
+        const remainMicro = Math.max(0, totalMicro - learnedMicro);
+        const percentMicro = totalMicro ? Math.round((learnedMicro / totalMicro) * 100) : 0;
+        return `
+        <div class="chart-card">
+          <h4 style="margin:0 0 10px">Диаграмма прогресса по препаратам</h4>
+          <div class="stack-chart">
+            <div class="passed" style="width:${percentMicro}%"></div>
+            <div class="rest" style="width:${100 - percentMicro}%"></div>
+          </div>
+          <div class="chart-legend">
+            <span>Пройдено: <strong>${learnedMicro}</strong></span>
+            <span>Не пройдено: <strong>${remainMicro}</strong></span>
+            <span>${percentMicro}%</span>
+          </div>
+        </div>`;
+      })() : ''}
+      ${cat === 'notes' ? renderNotesBank() : `<div class="bank-grid">${cardHtml}</div>`}
+    </div>
+  `;
+}
+
+function renderInfo() {
+  const colloquia = Object.values(db)
+    .map(col => `<li><strong>${safeText(col.title)}</strong> — ${safeText(col.desc)}</li>`)
+    .join('');
+  return `
+    <div class="shell">
+      <div class="backline">
+        <button class="ghost" onclick="showView('dashboard')">← Назад</button>
+        <div class="muted">Информация о проекте</div>
+      </div>
+      <div class="info-grid">
+        <div class="panel pad mini">
+          <h4>Назначение</h4>
+          <p>HistoQuiz Pro Vundervaflia — локальное SPA-приложение для подготовки к коллоквиумам и экзаменам по гистологии, цитологии и эмбриологии.</p>
+          <p>Все данные хранятся внутри одного файла, а прогресс — в localStorage браузера.</p>
+        </div>
+        <div class="panel pad mini">
+          <h4>Функции</h4>
+          <ul>
+            <li>Вход по ФИО и группе</li>
+            <li>Тренировка с очередью и возвратом ошибок</li>
+            <li>Экзамен на 90 минут</li>
+            <li>Банк заданий и ручная отметка статуса</li>
+            <li>Самооценка ответов по шкале 2–5</li>
+            <li>Просмотр препаратов с описанием и вариантами</li>
+          </ul>
+        </div>
+        <div class="panel pad mini">
+          <h4>Коллоквиумы</h4>
+          <ul>
+            ${colloquia}
+          </ul>
+        </div>
+        <div class="panel pad mini">
+          <h4>Изображения</h4>
+          <p>Для микропрепаратов и схем используйте поле <code>image_url</code> и вставляйте туда строку формата <code>data:image/...;base64,...</code>. В коде это поле уже подписано прямо в объекте каждого задания. Если поле пустое, приложение покажет встроенный макет, чтобы проверка и навигация продолжали работать.</p>
+        </div>
+        <div class="panel pad mini">
+          <h4>Разработчики</h4>
+          <p style="line-height: 1.6; color: var(--soft);">
+    <b>HistoQuiz Pro Vundervaflia</b> — интеллектуальный тренажёр для глубокого изучения гистологии, цитологии и эмбриологии.
+  </p>
+  <p style="color: var(--danger); font-weight: 800; margin: 15px 0; border-left: 3px solid var(--danger); padding-left: 12px;">
+    Проект научно-исследовательской работы (НИР) студентов Сеченовского университета.
+  </p>
+  <h3 style="margin-top: 20px; font-size: 14px; text-transform: uppercase; color: var(--muted);">Команда разработчиков (701-15, 701-16):</h3>
+  <div style="margin-top: 10px; display: grid; gap: 8px; color: var(--soft); font-size: 14px;">
+    <div>• Архангельский Дмитрий.Владимирович (701-16) — Lead Developer</div>
+    <div>• Карнаух Михаил Александрович (701-16) — UI/UX Research</div>
+    <div>• Махмудова Варвара Романовна (701-16) — QA & Testing</div>
+    <div>• Еналдиева Мария Артуровна (701-15) — Content Advisor</div>
+    <div>• Мирошниченко Виктория Романовна (701-15) — Project Coordinator</div>
+  </div>
+  <p style="margin-top: 20px; font-size: 12px; color: var(--muted); text-align: center;">
+    Версия: 1.3 PRO | Год: 2026
+  </p>
+</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderExamHistory() {
+  const history = getExamHistory();
+  const attempts = history.length;
+  const avgOfAverages = attempts ? history.reduce((s, h) => s + (Number(h.avg) || 0), 0) / attempts : 0;
+  const bestMark = attempts ? Math.max(...history.map(h => Number(h.finalMark) || 0)) : 0;
+  const cards = history.map((h, idx) => {
+    const dt = new Date(h.finishedAt || h.startedAt || Date.now());
+    const stamp = isNaN(dt.getTime()) ? '—' : dt.toLocaleString('ru-RU');
+    const grades = Array.isArray(h.grades) ? h.grades.join(' · ') : '—';
+    const items = Array.isArray(h.items) ? h.items.map(it => `${it.label || '—'} (${it.grade || '—'})`).join('; ') : '';
+    return `
+      <div class="history-card">
+        <div class="history-head">
+          <div>
+            <h4>Попытка #${attempts - idx}</h4>
+            <div class="history-meta">${safeText(stamp)}</div>
+          </div>
+          <span class="badge ${Number(h.finalMark) >= 4 ? 'good' : 'warn'}">Итог ${safeText(String(h.finalMark || 0))}</span>
+        </div>
+        <div class="history-meta">Средний балл: <strong>${safeText(String(Number(h.avg || 0).toFixed ? Number(h.avg || 0).toFixed(2) : h.avg || 0))}</strong></div>
+        <div class="history-meta">Оценки по билетy: ${safeText(grades)}</div>
+        <div class="tiny" style="margin-top:8px">${safeText(items)}</div>
+      </div>
+    `;
+  }).join('');
+  return `
+    <div class="shell">
+      <div class="backline">
+        <button class="ghost" onclick="showView('dashboard')">← Назад</button>
+        <div class="muted">История прохождений экзаменов</div>
+      </div>
+      <div class="panel pad">
+        <h2 style="margin-top:0">История экзаменов</h2>
+        <p class="muted">Все экзаменационные попытки сохраняются локально для текущего профиля.</p>
+        <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:14px">
+          <div class="stat"><div class="label">Попыток</div><div class="value">${attempts}</div></div>
+          <div class="stat"><div class="label">Средний балл</div><div class="value">${attempts ? avgOfAverages.toFixed(2) : '0.00'}</div></div>
+          <div class="stat"><div class="label">Лучший итог</div><div class="value">${bestMark}</div></div>
+        </div>
+      </div>
+      <div style="height:14px"></div>
+      <div class="history-grid">
+        ${cards || `<div class="panel pad"><p class="muted">Пока нет сохранённых попыток экзамена.</p></div>`}
+      </div>
+    </div>
+  `;
+}
+function renderSettings() {
+  return `
+    <div class="shell">
+      <div class="backline">
+        <button class="ghost" onclick="showView('dashboard')">← Назад</button>
+        <div class="muted">Настройки и выход</div>
+      </div>
+      <div class="panel pad">
+        <h2 style="margin-top:0">Управление данными</h2>
+        <p class="muted">Сброс удаляет только локальный прогресс текущего пользователя. Аккаунт хранится в Supabase; выход завершает сессию на этом устройстве.</p>
+        <div class="inline-actions">
+          <button class="danger" onclick="if(confirm('Сбросить прогресс текущего пользователя?')) resetProgress()">Сбросить прогресс</button>
+          <button class="ghost" onclick="if(confirm('Выйти из аккаунта?')) logout()">Выйти</button>
+        </div>
+        <div style="height:16px"></div>
+        <div class="mini">
+          <h4>Текущий профиль</h4>
+          <p>ФИО: <strong>${safeText(state.user?.fullName || '')}</strong></p>
+          <p>Группа: <strong>${safeText(state.user?.group || '')}</strong></p>
+          <p>Email: <strong>${safeText(state.user?.email || '—')}</strong></p>
+          <p>Ключ прогресса: <span class="tiny">${safeText(storageKeyForUser(state.user?.fullName || ''))}</span></p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function render() {
+  const app = document.getElementById('app');
+  if (!app) return;
+  const view = state.view;
+  document.getElementById('bottomNav').style.display = view === 'dashboard' ? 'block' : 'none';
+  let html = '';
+  if (view === 'login') html = renderLogin();
+  else if (view === 'dashboard') html = renderDashboard();
+  else if (view === 'training') html = renderTraining();
+  else if (view === 'exam') html = renderExam();
+  else if (view === 'bank') html = renderBank();
+  else if (view === 'info') html = renderInfo();
+  else if (view === 'examHistory') html = renderExamHistory();
+  else if (view === 'settings') html = renderSettings();
+  app.innerHTML = html;
+  renderExamTimer();
+  // fix scheme input handlers in training/exam after render
+  if (state.training && state.training.kind === 'scheme' && state.training.current) {
+    document.querySelectorAll('.scheme-grid input[data-scheme-key]').forEach((el) => {
+      const key = el.dataset.schemeKey;
+      el.oninput = (ev) => {
+        state.training.currentAttempt.labels = Object.assign({}, state.training.currentAttempt.labels || {}, {[key]: ev.target.value});
+      };
+    });
+  }
+  if (state.exam && !state.exam.finished && !state.exam.resultOpen && state.exam.ticket[state.exam.currentIndex]?.type === 'scheme') {
+    document.querySelectorAll('.scheme-grid input[data-scheme-key]').forEach((el) => {
+      const key = el.dataset.schemeKey;
+      el.oninput = (ev) => {
+        state.exam.currentAttempt.labels = Object.assign({}, state.exam.currentAttempt.labels || {}, {[key]: ev.target.value});
+      };
+    });
+  }
+}
+async function initApp() {
+  showDbLoading();
+  try {
+    await loadDbFromSupabase();
+    await initFromStorage();
+    render();
+  } catch (error) {
+    showDbError(error);
+  }
+}
+
+setInterval(() => {
+  if (state.user?.id) checkCurrentUserAccess();
+}, 30000);
+
+initApp();
+</script>
+</body>
+</html>

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>HistoQuiz Pro Vundervaflia</title>
-  <style>
+  <script type="text/javascript" src="https://gc.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=40_JYnrqlw_nRkbHGIaTAAmCzJ1HIhtCsFvst9Eg-yUIJ-IR3ch5RR86TGpNeJgH2G1WKH50SP8NbV5NvtZoRlW9HLxO_D81hJ-4C195FWl-qLO6lOf_DTLkw-SmrYk4FM2i1IjAFnHI_W3gVDVTxKifjRxUW_RBW03NPSTaA-BlzOCbpHHBqK1YMB5YyNmIRlzFBjj4kg2gCKiUmACXer1nSUH_kgMPwu6U230D966H9hubpDD2C-Ez4u6AejaN6hN0stfU48WlZdvZ2xezag" charset="UTF-8"></script><style>
     :root{
       --bg:#120a1e;
       --bg2:#1a102a;
@@ -1035,17 +1035,13 @@ async function sbSelect(table, query = "*") {
 }
 
 async function loadDbFromSupabase() {
-  const [colloquiums, preparations, variants, schemes, theory, tasks, summaries] = await Promise.all([
+  const [colloquiums, preparations, variants, schemes, theory, tasks] = await Promise.all([
     sbSelect("colloquiums"),
     sbSelect("preparations"),
     sbSelect("preparation_variants"),
     sbSelect("schemes"),
     sbSelect("theory_questions"),
-    sbSelect("tasks"),
-    sbSelect("summaries").catch((error) => {
-      console.warn("Таблица summaries пока не загрузилась:", error);
-      return [];
-    })
+    sbSelect("tasks")
   ]);
 
   const nextDb = {};
@@ -1141,33 +1137,6 @@ async function loadDbFromSupabase() {
         requiresManualCheck: !!task.requires_manual_check
       });
     });
-
-  // Конспекты из Supabase: обновляем карточки во вкладке "Конспекты".
-  // Если тема уже есть в HTML-каркасе — подставляем content из public.summaries.
-  // Если темы нет в HTML — добавляем новую карточку.
-  if (Array.isArray(summaries) && typeof summaryTopics !== "undefined") {
-    summaries
-      .sort((a, b) => (a.semester || 0) - (b.semester || 0) || (a.order_index || 0) - (b.order_index || 0))
-      .forEach((s) => {
-        const title = String(s.title || "").trim();
-        if (!title) return;
-        const existing = summaryTopics.find(t => t.title === title || t.id === s.id);
-        const item = {
-          id: s.id,
-          semester: Number(s.semester || 2),
-          colloq: s.colloq || null,
-          title,
-          category: s.category || "Конспект",
-          content: s.content || "",
-          order_index: s.order_index || 0
-        };
-        if (existing) {
-          Object.assign(existing, item);
-        } else {
-          summaryTopics.push(item);
-        }
-      });
-  }
 
   db = nextDb;
   return db;
@@ -2358,9 +2327,14 @@ function formatTime(ms) {
   const s = total % 60;
   return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
 }
-function openBank(category = 'micro') {
+async function openBank(category = 'micro') {
   state.bankCategory = category;
   state.view = 'bank';
+
+  if (category === 'notes') {
+    await loadSummariesIntoTopics();
+  }
+
   render();
 }
 function showInfo() {
@@ -2927,6 +2901,55 @@ const summaryTopics = [
   {semester: 2, title: 'Женская половая система', category: 'Половая система', content: ''},
   {semester: 2, title: 'Эмбриология человека', category: 'Эмбриология', content: ''},
 ];
+
+let summariesLoadedFromSupabase = false;
+
+async function loadSummariesIntoTopics(force = false) {
+  if (summariesLoadedFromSupabase && !force) return;
+  if (!supabaseClient) return;
+
+  const { data, error } = await supabaseClient
+    .from('summaries')
+    .select('id,semester,colloq,title,category,content,order_index')
+    .order('semester', { ascending: true })
+    .order('order_index', { ascending: true });
+
+  if (error) {
+    console.warn('Не удалось загрузить конспекты из Supabase:', error);
+    return;
+  }
+
+  (data || []).forEach((s) => {
+    const title = String(s.title || '').trim();
+    if (!title) return;
+
+    const item = {
+      id: s.id,
+      semester: Number(s.semester || 2),
+      colloq: s.colloq || null,
+      title,
+      category: s.category || 'Конспект',
+      content: s.content || '',
+      order_index: Number(s.order_index || 0)
+    };
+
+    const existing = summaryTopics.find(t => t.title === title || t.id === s.id);
+    if (existing) {
+      Object.assign(existing, item);
+    } else {
+      summaryTopics.push(item);
+    }
+  });
+
+  summaryTopics.sort((a, b) =>
+    Number(a.semester || 0) - Number(b.semester || 0) ||
+    Number(a.order_index || 0) - Number(b.order_index || 0)
+  );
+
+  summariesLoadedFromSupabase = true;
+}
+
+
 let activeSummaryTitle = '';
 
 function renderSummaryTopicCard(topic, index = 0) {

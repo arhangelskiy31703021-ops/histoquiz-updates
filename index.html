@@ -2637,7 +2637,7 @@ function renderDashboard() {
 
   let cards = '';
   if (state.section === 'microscopy') {
-    cards = Object.values(db).map(col => {
+    cards = Object.values(db).filter(col => (col.microscopy || []).length > 0).sort((a,b)=>(a.num||0)-(b.num||0)).map(col => {
       const activeType = state.section;
       const items = col[keyMap[activeType]] || [];
       const totalItems = items.length;
@@ -3164,6 +3164,7 @@ function renderInfo() {
   <div style="margin-top: 10px; display: grid; gap: 8px; color: var(--soft); font-size: 14px;">
     <div>• Архангельский Дмитрий.Владимирович (701-16) — Lead Developer</div>
     <div>• Карнаух Михаил Александрович (701-16) — UI/UX Research</div>
+    <div>• Махмудова Варвара Романовна (701-16) — QA & Testing</div>
     <div>• Еналдиева Мария Артуровна (701-15) — Content Advisor</div>
     <div>• Мирошниченко Виктория Романовна (701-15) — Project Coordinator</div>
   </div>

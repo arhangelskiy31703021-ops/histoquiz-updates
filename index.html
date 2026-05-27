@@ -840,7 +840,25 @@ div[style*="grid-template-columns: repeat(2"]{
   font-weight:750;
 }
 
-  </style>
+  
+/* === FIX: для теории и задач убрана левая карточка-заглушка с изображением === */
+.training-layout.text-only-training{
+  grid-template-columns:1fr !important;
+}
+.training-layout.text-only-training .qa{
+  width:100%;
+  max-width:1040px;
+  margin:0 auto;
+}
+.training-layout.text-only-training .question-box{
+  padding:18px 20px;
+}
+.training-layout.text-only-training .question-text{
+  font-size:19px;
+  line-height:1.62;
+}
+
+</style>
 </head>
 <body>
 <div class="app" id="app"></div>
@@ -2819,13 +2837,15 @@ function renderTraining() {
         <button class="ghost" onclick="showView('dashboard')">← Назад</button>
         <div class="muted">${safeText(tr.title)}</div>
       </div>
-      <div class="training-layout">
-        <div class="panel media-box">
-          <div class="media">
-            <div class="media-note">${safeText(tr.kind === 'micro' ? `${cur.variantTitle || 'Вариант 1'}` : tr.kind === 'scheme' ? 'Схема АД' : 'Материал')}</div>
-            <img class="${cur.type === 'micro' ? 'fullscreen-trigger' : ''}" src="${resolveImageUrl(cur)}" alt="${safeText(cur.name || cur.title || '')}" ${cur.type === 'micro' ? `onclick="openFullscreenImage('${resolveImageUrl(cur)}', '${safeText((cur.name || cur.title || '') + (cur.variantTitle ? ' · ' + cur.variantTitle : ''))}')"` : ''} />
+      <div class="training-layout ${cur.type === 'theory' || cur.type === 'task' ? 'text-only-training' : ''}">
+        ${cur.type === 'theory' || cur.type === 'task' ? '' : `
+          <div class="panel media-box">
+            <div class="media">
+              <div class="media-note">${safeText(tr.kind === 'micro' ? `${cur.variantTitle || 'Вариант 1'}` : tr.kind === 'scheme' ? 'Схема АД' : 'Материал')}</div>
+              <img class="${cur.type === 'micro' ? 'fullscreen-trigger' : ''}" src="${resolveImageUrl(cur)}" alt="${safeText(cur.name || cur.title || '')}" ${cur.type === 'micro' ? `onclick="openFullscreenImage('${resolveImageUrl(cur)}', '${safeText((cur.name || cur.title || '') + (cur.variantTitle ? ' · ' + cur.variantTitle : ''))}')"` : ''} />
+            </div>
           </div>
-        </div>
+        `}
         <div class="panel qa">
           ${renderQuestionHeader(cur, 'training')}
           <div class="field">${right}</div>

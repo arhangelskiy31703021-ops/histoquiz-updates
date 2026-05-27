@@ -816,7 +816,31 @@ div[style*="grid-template-columns: repeat(2"]{
 .desc-text img{ max-width:100%; height:auto; }
 
 
-</style>
+
+/* === FIX: вывод текста теоретического вопроса/задачи в тренировке и экзамене === */
+.question-box{
+  margin:12px 0 14px;
+  padding:14px 16px;
+  border-radius:18px;
+  background:rgba(177,124,255,.10);
+  border:1px solid rgba(177,124,255,.22);
+}
+.question-label{
+  margin-bottom:8px;
+  font-size:12px;
+  font-weight:900;
+  letter-spacing:.02em;
+  color:var(--warning);
+  text-transform:uppercase;
+}
+.question-text{
+  color:var(--text);
+  font-size:17px;
+  line-height:1.55;
+  font-weight:750;
+}
+
+  </style>
 </head>
 <body>
 <div class="app" id="app"></div>
@@ -2706,9 +2730,24 @@ function renderQuestionHeader(item, mode) {
           : item.type === 'theory'
             ? 'После проверки поставьте себе 2, 3, 4 или 5.'
             : 'После проверки поставьте себе только 2 или 5.');
+
+  const taskText = item.type === 'theory' || item.type === 'task'
+    ? String(item.question || '').trim()
+    : item.type === 'scheme'
+      ? String(item.title || '').trim()
+      : '';
+
+  const taskHtml = taskText
+    ? `<div class="question-box">
+         <div class="question-label">${item.type === 'task' ? 'Текст задачи' : item.type === 'theory' ? 'Теоретический вопрос' : 'Схема'}</div>
+         <div class="question-text">${safeText(taskText)}</div>
+       </div>`
+    : '';
+
   return `
     <div class="prompt">
       <h3>${title} · ${kind}</h3>
+      ${taskHtml}
       <p>${item.type === 'micro'
         ? 'Введите название препарата и типичную окраску.'
         : item.type === 'scheme'

@@ -963,6 +963,106 @@ div[style*="grid-template-columns: repeat(2"]{
   .order-actions{grid-column:1 / -1}
 }
 
+
+/* === drag_to_groups: настоящие столбики с перетаскиванием === */
+.group-board{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(230px, 1fr));
+  gap:12px;
+  margin:14px 0;
+}
+.group-column{
+  min-height:180px;
+  border-radius:18px;
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(255,255,255,.035);
+  overflow:hidden;
+}
+.group-column.source{
+  background:rgba(177,124,255,.055);
+  border-color:rgba(177,124,255,.20);
+}
+.group-column-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  padding:12px 14px;
+  border-bottom:1px solid rgba(255,255,255,.08);
+  background:rgba(255,255,255,.035);
+}
+.group-column-head strong{
+  font-size:14px;
+  line-height:1.25;
+}
+.group-column-head span{
+  min-width:26px;
+  height:26px;
+  display:grid;
+  place-items:center;
+  border-radius:10px;
+  background:rgba(177,124,255,.16);
+  font-weight:900;
+  font-size:12px;
+}
+.group-dropzone{
+  min-height:130px;
+  padding:10px;
+  display:grid;
+  align-content:start;
+  gap:8px;
+}
+.group-dropzone.empty{
+  place-items:center;
+}
+.drop-hint{
+  color:var(--muted);
+  font-size:13px;
+  text-align:center;
+  border:1px dashed rgba(255,255,255,.14);
+  border-radius:14px;
+  padding:14px;
+  width:100%;
+}
+.drag-card{
+  display:grid;
+  grid-template-columns:1fr auto;
+  align-items:center;
+  gap:8px;
+  padding:10px 12px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(255,255,255,.06);
+  cursor:grab;
+  user-select:none;
+}
+.drag-card:active{cursor:grabbing}
+.drag-card b{
+  font-size:14px;
+  line-height:1.32;
+}
+.drag-card.correct{
+  border-color:rgba(78,214,168,.65);
+  background:rgba(78,214,168,.12);
+}
+.drag-card.wrong{
+  border-color:rgba(239,91,125,.65);
+  background:rgba(239,91,125,.12);
+}
+.drag-remove{
+  width:26px;
+  height:26px;
+  padding:0;
+  border-radius:9px;
+  font-size:16px;
+  line-height:1;
+  opacity:.85;
+}
+@media (max-width:760px){
+  .group-board{grid-template-columns:1fr}
+  .group-column{min-height:auto}
+}
+
 </style>
 </head>
 <body>
@@ -3619,10 +3719,34 @@ function moveOrderItem(pos, direction) {
   render();
 }
 
+function handleGroupCardDragStart(event, encodedCardId) {
+  if (state.mcqTest?.checked) return;
+  event.dataTransfer.setData('text/plain', encodedCardId);
+  event.dataTransfer.effectAllowed = 'move';
+}
+
+function allowGroupDrop(event) {
+  if (state.mcqTest?.checked) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+}
+
+function handleGroupDrop(event, encodedGroupId) {
+  if (state.mcqTest?.checked) return;
+  event.preventDefault();
+  const encodedCardId = event.dataTransfer.getData('text/plain');
+  if (!encodedCardId) return;
+  setGroupAnswer(decodeURIComponent(encodedCardId), encodedGroupId ? decodeURIComponent(encodedGroupId) : '');
+}
+
 function setGroupAnswer(cardId, groupId) {
   const test = state.mcqTest;
   if (!test || test.checked) return;
-  test.groupAnswers = {...(test.groupAnswers || {}), [cardId]: groupId};
+  const next = {...(test.groupAnswers || {})};
+  if (groupId) next[cardId] = groupId;
+  else delete next[cardId];
+  test.groupAnswers = next;
+  render();
 }
 
 function evaluateGroupAnswer(cur, groupAnswers) {
@@ -3786,32 +3910,70 @@ function renderOrderQuestion(cur, selected, correctIndexes, checked) {
   `;
 }
 
+function expectedGroupForCard(cur, cardId) {
+  const taskData = taskDataOf(cur);
+  const correctGroups = taskData.correctGroups || taskData.correct_groups || {};
+  let expected = '';
+  Object.entries(correctGroups).forEach(([groupId, cardIds]) => {
+    if ((cardIds || []).includes(cardId)) expected = groupId;
+  });
+  return expected;
+}
+
+function renderGroupDraggableCard(cur, card, checked) {
+  const answers = state.mcqTest?.groupAnswers || {};
+  const current = answers[card.id] || '';
+  const expected = expectedGroupForCard(cur, card.id);
+  const isCorrect = checked && current && current === expected;
+  const isWrong = checked && current && current !== expected;
+  const encoded = encodeURIComponent(card.id);
+
+  return `
+    <div class="drag-card ${isCorrect ? 'correct' : ''} ${isWrong ? 'wrong' : ''}"
+      draggable="${checked ? 'false' : 'true'}"
+      ondragstart="handleGroupCardDragStart(event, '${encoded}')">
+      <b>${safeText(card.text)}</b>
+      ${!checked && current ? `<button type="button" class="drag-remove" onclick="event.stopPropagation(); setGroupAnswer(decodeURIComponent('${encoded}'), '')">×</button>` : ''}
+    </div>
+  `;
+}
+
 function renderDragToGroupsQuestion(cur) {
   const taskData = taskDataOf(cur);
   const groups = Array.isArray(taskData.groups) ? taskData.groups : [];
   const cards = Array.isArray(taskData.cards) ? taskData.cards : [];
-  const correctGroups = taskData.correctGroups || taskData.correct_groups || {};
   const checked = state.mcqTest?.checked;
   const answers = state.mcqTest?.groupAnswers || {};
+  const unassigned = cards.filter(card => !answers[card.id]);
 
   return `
-    <p class="tiny" style="margin-top:6px">Распределите каждую карточку по группе.</p>
-    <div class="group-task">
-      ${cards.map(card => {
-        let expected = '';
-        Object.entries(correctGroups).forEach(([groupId, cardIds]) => {
-          if ((cardIds || []).includes(card.id)) expected = groupId;
-        });
-        const current = answers[card.id] || '';
-        const isCorrect = checked && current && current === expected;
-        const isWrong = checked && current && current !== expected;
+    <p class="tiny" style="margin-top:6px">Перетащите карточки в нужные столбики. Все карточки должны быть распределены.</p>
+    <div class="group-board">
+      <div class="group-column source"
+        ondragover="allowGroupDrop(event)"
+        ondrop="handleGroupDrop(event, '')">
+        <div class="group-column-head">
+          <strong>Карточки</strong>
+          <span>${unassigned.length}</span>
+        </div>
+        <div class="group-dropzone ${!unassigned.length ? 'empty' : ''}">
+          ${unassigned.length ? unassigned.map(card => renderGroupDraggableCard(cur, card, checked)).join('') : '<div class="drop-hint">Все карточки распределены</div>'}
+        </div>
+      </div>
+
+      ${groups.map(g => {
+        const groupCards = cards.filter(card => answers[card.id] === g.id);
         return `
-          <div class="group-card ${isCorrect ? 'correct' : ''} ${isWrong ? 'wrong' : ''}">
-            <b>${safeText(card.text)}</b>
-            <select onchange="setGroupAnswer('${safeText(card.id)}', this.value)" ${checked ? 'disabled' : ''}>
-              <option value="">Выберите группу</option>
-              ${groups.map(g => `<option value="${safeText(g.id)}" ${current === g.id ? 'selected' : ''}>${safeText(g.title)}</option>`).join('')}
-            </select>
+          <div class="group-column"
+            ondragover="allowGroupDrop(event)"
+            ondrop="handleGroupDrop(event, '${encodeURIComponent(g.id)}')">
+            <div class="group-column-head">
+              <strong>${safeText(g.title)}</strong>
+              <span>${groupCards.length}</span>
+            </div>
+            <div class="group-dropzone ${!groupCards.length ? 'empty' : ''}">
+              ${groupCards.length ? groupCards.map(card => renderGroupDraggableCard(cur, card, checked)).join('') : '<div class="drop-hint">Перетащите сюда</div>'}
+            </div>
           </div>
         `;
       }).join('')}

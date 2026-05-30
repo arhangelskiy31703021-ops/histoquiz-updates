@@ -858,6 +858,41 @@ div[style*="grid-template-columns: repeat(2"]{
   line-height:1.62;
 }
 
+
+/* === MCQ тестирование === */
+.mcq-panel{max-width:1040px;margin:0 auto;}
+.mcq-top{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:16px;}
+.mcq-top h2{margin:6px 0 0;font-size:22px;line-height:1.35;}
+.mcq-options{display:grid;gap:10px;margin:16px 0;}
+.mcq-option{
+  width:100%;
+  display:grid;
+  grid-template-columns:auto 1fr;
+  gap:12px;
+  align-items:center;
+  text-align:left;
+  padding:14px 16px;
+  border-radius:18px;
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(255,255,255,.045);
+  color:var(--text);
+  cursor:pointer;
+  transition:.16s ease;
+}
+.mcq-option:hover{border-color:rgba(177,124,255,.35);background:rgba(177,124,255,.075);}
+.mcq-option span{
+  width:34px;height:34px;border-radius:12px;
+  display:grid;place-items:center;
+  background:rgba(177,124,255,.16);
+  color:var(--text);
+  font-weight:900;
+}
+.mcq-option b{font-weight:750;line-height:1.4;}
+.mcq-option.selected{border-color:rgba(177,124,255,.65);background:rgba(177,124,255,.12);}
+.mcq-option.correct{border-color:rgba(78,214,168,.65);background:rgba(78,214,168,.12);}
+.mcq-option.wrong{border-color:rgba(239,91,125,.65);background:rgba(239,91,125,.12);}
+@media (max-width:820px){.mcq-top{display:block}.mcq-top .badge{margin-top:10px;display:inline-block}}
+
 </style>
 </head>
 <body>
@@ -918,6 +953,7 @@ div[style*="grid-template-columns: repeat(2"]{
    ========================================================= */
 
 let db = {};
+let mcqTests = [];
 
 /* =========================================================
    Supabase DB loader:
@@ -967,6 +1003,16 @@ async function sbSelect(table, query = "*") {
   return data || [];
 }
 
+async function sbSelectOptional(table, query = "*") {
+  if (!supabaseClient) return [];
+  const { data, error } = await supabaseClient.from(table).select(query);
+  if (error) {
+    console.warn(`Опциональная таблица ${table} не загружена:`, error.message || error);
+    return [];
+  }
+  return data || [];
+}
+
 async function loadDbFromSupabase() {
   const [colloquiums, preparations, variants, schemes, theory, tasks] = await Promise.all([
     sbSelect("colloquiums"),
@@ -976,6 +1022,21 @@ async function loadDbFromSupabase() {
     sbSelect("theory_questions"),
     sbSelect("tasks")
   ]);
+
+  const mcqRows = await sbSelectOptional("test_questions");
+  mcqTests = (mcqRows || [])
+    .map((q, idx) => ({
+      id: q.id || `mcq_${idx + 1}`,
+      type: "mcq",
+      topic_block: q.topic_block || q.topicBlock || "",
+      question: q.question || "",
+      options: Array.isArray(q.options) ? q.options : [],
+      correct_index: Number.isFinite(Number(q.correct_index)) ? Number(q.correct_index) : null,
+      correct_answer: q.correct_answer || "",
+      explanation: q.explanation || "",
+      order_index: q.order_index || idx + 1
+    }))
+    .sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
 
   const nextDb = {};
   colloquiums
@@ -1086,6 +1147,7 @@ const state = {
   bankCategory: 'micro',
   training: null,
   exam: null,
+  mcqTest: null,
   info: null,
   settings: null,
   zoom: {
@@ -1351,11 +1413,14 @@ function topicBlockOf(item) {
   return inferTopicBlock(item) || 'Без блока темы';
 }
 
+function allMcqTests() { return (mcqTests || []).map(item => ({...item, title: item.question || 'Тестовый вопрос'})); }
+
 function collectionForKind(kind) {
   if (kind === 'theory') return allTheory();
   if (kind === 'task') return allTasks();
   if (kind === 'scheme') return allSchemes();
   if (kind === 'micro') return allMicro();
+  if (kind === 'mcq') return allMcqTests();
   return [];
 }
 
@@ -1375,23 +1440,29 @@ function renderTopicBlockCards(kind) {
   const actionKind = kind === 'scheme' ? 'scheme' : kind;
   const blockCards = TOPIC_BLOCKS.map((block, idx) => {
     const totalItems = topicCount(actionKind, block);
-    const learnedItems = topicLearnedCount(actionKind, block);
-    const percent = totalItems ? Math.round(learnedItems / totalItems * 100) : 0;
-    const tag = totalItems ? (percent === 100 ? 'good' : 'dev') : 'warn';
-    const actionText = totalItems ? 'Открыть блок' : 'Пока пусто';
+    const learnedItems = actionKind === 'mcq' ? 0 : topicLearnedCount(actionKind, block);
+    const percent = totalItems && actionKind !== 'mcq' ? Math.round(learnedItems / totalItems * 100) : 0;
+    const tag = totalItems ? (percent === 100 && actionKind !== 'mcq' ? 'good' : 'dev') : 'warn';
+    const actionText = totalItems ? (actionKind === 'mcq' ? 'Начать тест' : 'Открыть блок') : 'Пока пусто';
+    const action = actionKind === 'mcq'
+      ? `startTopicTest(decodeURIComponent('${encodeURIComponent(block)}'))`
+      : `startTopicTraining('${actionKind}', decodeURIComponent('${encodeURIComponent(block)}'))`;
+    const description = actionKind === 'mcq'
+      ? 'Тестирование по сложным вопросам с выбором ответа. Темы совпадают с блоками теоретических вопросов.'
+      : 'Блок темы для теоретических вопросов, задач или схем. Экзамен при этом остаётся независимым.';
     return `
-      <div class="card clickable" onclick="startTopicTraining('${actionKind}', decodeURIComponent('${encodeURIComponent(block)}'))">
+      <div class="card clickable" onclick="${action}">
         <div class="card-top">
           <div>
             <h4>${idx + 1}. ${safeText(block)}</h4>
-            <p>Блок темы для теоретических вопросов, задач или схем. Экзамен при этом остаётся независимым.</p>
+            <p>${safeText(description)}</p>
           </div>
           <span class="badge ${tag}">${actionText}</span>
         </div>
         <div class="progress"><span style="width:${percent}%"></span></div>
         <div class="meta">
-          <span>${learnedItems} / ${totalItems} элементов</span>
-          <span>${percent}%</span>
+          <span>${actionKind === 'mcq' ? `${totalItems} тест. вопросов` : `${learnedItems} / ${totalItems} элементов`}</span>
+          <span>${actionKind === 'mcq' ? 'выбор ответа' : `${percent}%`}</span>
         </div>
       </div>
     `;
@@ -2101,8 +2172,176 @@ async function startTopicTraining(kind, topicBlock) {
   render();
 }
 
+
+async function startTopicTest(topicBlock) {
+  if (!(await checkCurrentUserAccess())) return;
+  const source = itemsForTopicTraining('mcq', topicBlock);
+  if (!source || !source.length) {
+    alert('В этом блоке пока нет тестовых вопросов. Добавь их в таблицу test_questions.');
+    return;
+  }
+  state.mcqTest = {
+    topicBlock,
+    title: `${topicBlock} — тестирование`,
+    queue: shuffle(source.map(item => deepClone(item))),
+    currentIndex: 0,
+    answers: [],
+    selected: null,
+    checked: false,
+    finished: false,
+  };
+  state.view = 'mcqTest';
+  render();
+}
+
+function currentMcqItem() {
+  return state.mcqTest?.queue?.[state.mcqTest.currentIndex] || null;
+}
+
+function selectMcqOption(index) {
+  if (!state.mcqTest || state.mcqTest.checked) return;
+  state.mcqTest.selected = index;
+  render();
+}
+
+function checkMcqAnswer() {
+  const test = state.mcqTest;
+  const cur = currentMcqItem();
+  if (!test || !cur) return;
+  if (test.selected === null || test.selected === undefined) {
+    alert('Сначала выбери вариант ответа.');
+    return;
+  }
+  const correctIndex = Number(cur.correct_index);
+  const ok = Number(test.selected) === correctIndex;
+  test.answers[test.currentIndex] = {
+    itemId: cur.id,
+    selected: test.selected,
+    correctIndex,
+    ok,
+  };
+  test.checked = true;
+  render();
+}
+
+function nextMcqQuestion() {
+  const test = state.mcqTest;
+  if (!test) return;
+  if (test.currentIndex >= test.queue.length - 1) {
+    finishMcqTest();
+    return;
+  }
+  test.currentIndex++;
+  test.selected = null;
+  test.checked = false;
+  render();
+}
+
+function finishMcqTest() {
+  if (!state.mcqTest) return;
+  state.mcqTest.finished = true;
+  render();
+}
+
+function renderMcqTest() {
+  const test = state.mcqTest;
+  if (!test) return '';
+  const total = test.queue.length;
+  const answered = test.answers.filter(Boolean).length;
+  const correct = test.answers.filter(a => a?.ok).length;
+  const percent = total ? Math.round(correct / total * 100) : 0;
+
+  if (test.finished) {
+    return `
+      <div class="shell">
+        <div class="backline">
+          <button class="ghost" onclick="showView('dashboard')">← Назад</button>
+          <div class="muted">${safeText(test.title)}</div>
+        </div>
+        <div class="panel pad">
+          <h2 style="margin-top:0">Тестирование завершено</h2>
+          <p class="muted">Верно: <strong>${correct}</strong> из <strong>${total}</strong>. Результат: <strong>${percent}%</strong>.</p>
+          <div class="results">
+            ${test.queue.map((item, idx) => {
+              const a = test.answers[idx] || {};
+              const selectedText = item.options?.[a.selected] ?? '—';
+              const correctText = item.options?.[Number(item.correct_index)] ?? item.correct_answer ?? '—';
+              return `
+                <div class="result-row ${a.ok ? 'ok' : 'bad'}">
+                  <div>
+                    <strong>${idx + 1}. ${safeText(item.question || '')}</strong>
+                    <div class="tiny">Ваш ответ: ${safeText(selectedText)}</div>
+                    <div class="tiny">Правильно: ${safeText(correctText)}</div>
+                    ${item.explanation ? `<div class="tiny">Пояснение: ${safeText(item.explanation)}</div>` : ''}
+                  </div>
+                  <strong>${a.ok ? 'верно' : 'ошибка'}</strong>
+                </div>
+              `;
+            }).join('')}
+          </div>
+          <div class="inline-actions" style="margin-top:14px">
+            <button class="primary" onclick="startTopicTest(decodeURIComponent('${encodeURIComponent(test.topicBlock)}'))">Повторить</button>
+            <button class="ghost" onclick="showView('dashboard')">Вернуться</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  const cur = currentMcqItem();
+  const selected = test.selected;
+  const correctIndex = Number(cur.correct_index);
+  return `
+    <div class="shell">
+      <div class="backline">
+        <button class="ghost" onclick="showView('dashboard')">← Назад</button>
+        <div class="muted">${safeText(test.title)}</div>
+      </div>
+      <div class="panel pad mcq-panel">
+        <div class="mcq-top">
+          <div>
+            <div class="tiny">Вопрос ${test.currentIndex + 1} из ${total}</div>
+            <h2>${safeText(cur.question || '')}</h2>
+          </div>
+          <span class="badge dev">${safeText(test.topicBlock)}</span>
+        </div>
+        <div class="mcq-options">
+          ${(cur.options || []).map((opt, idx) => {
+            const isSelected = Number(selected) === idx;
+            const isCorrect = test.checked && idx === correctIndex;
+            const isWrong = test.checked && isSelected && idx !== correctIndex;
+            return `
+              <button type="button"
+                class="mcq-option ${isSelected ? 'selected' : ''} ${isCorrect ? 'correct' : ''} ${isWrong ? 'wrong' : ''}"
+                onclick="selectMcqOption(${idx})">
+                <span>${String.fromCharCode(65 + idx)}</span>
+                <b>${safeText(opt)}</b>
+              </button>
+            `;
+          }).join('')}
+        </div>
+        ${test.checked ? `
+          <div class="feedback ${Number(selected) === correctIndex ? 'ok show' : 'bad show'}">
+            <div class="title">${Number(selected) === correctIndex ? 'Верно' : 'Ошибка'}</div>
+            <div class="small">Правильный ответ: ${safeText(cur.options?.[correctIndex] || cur.correct_answer || '')}</div>
+            ${cur.explanation ? `<div class="small" style="margin-top:8px">${safeText(cur.explanation)}</div>` : ''}
+          </div>
+        ` : ''}
+        <div class="inline-actions">
+          ${test.checked
+            ? `<button class="primary" onclick="nextMcqQuestion()">${test.currentIndex >= total - 1 ? 'Завершить' : 'Дальше'}</button>`
+            : `<button class="primary" onclick="checkMcqAnswer()">Проверить</button>`}
+          <button class="ghost" onclick="finishMcqTest()">Завершить тест</button>
+        </div>
+        <div class="tiny">Отвечено: ${answered} · Верно: ${correct}</div>
+      </div>
+    </div>
+  `;
+}
+
+
 function kindLabel(kind) {
-  return ({micro:'Препараты', scheme:'Схемы', theory:'Теоретические вопросы', task:'Задачи'})[kind] || kind;
+  return ({micro:'Препараты', scheme:'Схемы', theory:'Теоретические вопросы', task:'Задачи', mcq:'Тестирование'})[kind] || kind;
 }
 function nextTrainingQuestion() {
   if (!state.training) return;
@@ -2622,18 +2861,20 @@ function renderDashboard() {
   const learned = overallLearnedCount();
   const total = overallTotalCount();
   const sections = {
-    microscopy: 'Коллоквиумы (Препараты)',
+    microscopy: 'Препараты',
     theory: 'Блоки тем (Теоретические вопросы)',
     tasks: 'Блоки тем (Задачи)',
     schemes: 'Блоки тем (Схемы)',
+    mcq: 'Тестирование по сложным вопросам',
   };
   const sectionTitles = {
     microscopy: 'Микропрепараты',
     theory: 'Теоретические вопросы',
     tasks: 'Ситуационные задачи',
     schemes: 'Структурные схемы',
+    mcq: 'Тесты с выбором ответа',
   };
-  const keyMap = {microscopy:'microscopy', theory:'theory', tasks:'tasks', schemes:'schemes'};
+  const keyMap = {microscopy:'microscopy', theory:'theory', tasks:'tasks', schemes:'schemes', mcq:'mcq'};
 
   let cards = '';
   if (state.section === 'microscopy') {
@@ -2662,13 +2903,15 @@ function renderDashboard() {
       `;
     }).join('');
   } else {
-    const kind = state.section === 'theory' ? 'theory' : state.section === 'tasks' ? 'task' : 'scheme';
+    const kind = state.section === 'theory' ? 'theory' : state.section === 'tasks' ? 'task' : state.section === 'mcq' ? 'mcq' : 'scheme';
     cards = renderTopicBlockCards(kind);
   }
 
   const subtitle = state.section === 'microscopy'
-    ? 'Нажмите на карточку коллоквиума для запуска тренировки по препаратам.'
-    : 'Выберите блок темы. Экзаменационный режим не зависит от этих блоков и работает по старой логике.';
+    ? 'Нажмите на карточку раздела для запуска тренировки по препаратам.'
+    : state.section === 'mcq'
+      ? 'Выберите тему тестирования. Здесь будут сложные вопросы с вариантами ответов. Экзамен при этом остаётся независимым.'
+      : 'Выберите блок темы. Экзаменационный режим не зависит от этих блоков и работает по старой логике.';
 
   return `
     <div class="shell">
@@ -2710,6 +2953,7 @@ function renderDashboard() {
         <button class="tab ${state.section==='theory'?'active':''}" onclick="setSection('theory')">Теоретические вопросы</button>
         <button class="tab ${state.section==='tasks'?'active':''}" onclick="setSection('tasks')">Задачи</button>
         <button class="tab ${state.section==='schemes'?'active':''}" onclick="setSection('schemes')">Схемы</button>
+        <button class="tab ${state.section==='mcq'?'active':''}" onclick="setSection('mcq')">Тестирование</button>
       </div>
 
       <div class="section-head">
@@ -3116,9 +3360,7 @@ function renderBank() {
 }
 
 function renderInfo() {
-  const colloquia = Object.values(db)
-    .map(col => `<li><strong>${safeText(col.title)}</strong> — ${safeText(col.desc)}</li>`)
-    .join('');
+  const topicList = TOPIC_BLOCKS.map((t, i) => `<li><strong>${i + 1}.</strong> ${safeText(t)}</li>`).join('');
   return `
     <div class="shell">
       <div class="backline">
@@ -3129,7 +3371,7 @@ function renderInfo() {
         <div class="panel pad mini">
           <h4>Назначение</h4>
           <p>HistoQuiz Pro Vundervaflia — локальное SPA-приложение для подготовки к коллоквиумам и экзаменам по гистологии, цитологии и эмбриологии.</p>
-          <p>Все данные хранятся внутри одного файла, а прогресс — в localStorage браузера.</p>
+          <p>Данные загружаются из Supabase, а пользовательский прогресс сохраняется в базе и локально в браузере.</p>
         </div>
         <div class="panel pad mini">
           <h4>Функции</h4>
@@ -3143,14 +3385,25 @@ function renderInfo() {
           </ul>
         </div>
         <div class="panel pad mini">
-          <h4>Коллоквиумы</h4>
+          <h4>Структура подготовки</h4>
+          <p>Препараты открываются отдельным разделом. Теоретические вопросы, задачи, схемы и тестирование распределяются по тематическим блокам.</p>
           <ul>
-            ${colloquia}
+            <li><strong>Препараты</strong> — тренировка микропрепаратов с изображениями и описаниями.</li>
+            <li><strong>Теоретические вопросы</strong> — устные экзаменационные вопросы по блокам.</li>
+            <li><strong>Задачи</strong> — ситуационные задачи по темам.</li>
+            <li><strong>Схемы</strong> — структурные схемы и подписи.</li>
+            <li><strong>Тестирование</strong> — сложные вопросы с выбором ответа.</li>
+          </ul>
+        </div>
+        <div class="panel pad mini">
+          <h4>Блоки тем</h4>
+          <ul>
+            ${topicList}
           </ul>
         </div>
         <div class="panel pad mini">
           <h4>Изображения</h4>
-          <p>Для микропрепаратов и схем используйте поле <code>image_url</code> и вставляйте туда строку формата <code>data:image/...;base64,...</code>. В коде это поле уже подписано прямо в объекте каждого задания. Если поле пустое, приложение покажет встроенный макет, чтобы проверка и навигация продолжали работать.</p>
+          <p>Для микропрепаратов и схем используйте поле <code>image_url</code>. Теория, задачи и тесты распределяются через поле <code>topic_block</code>. Для тестов используется таблица <code>test_questions</code>.</p>
         </div>
         <div class="panel pad mini">
           <h4>Разработчики</h4>
@@ -3260,6 +3513,7 @@ function render() {
   else if (view === 'dashboard') html = renderDashboard();
   else if (view === 'training') html = renderTraining();
   else if (view === 'exam') html = renderExam();
+  else if (view === 'mcqTest') html = renderMcqTest();
   else if (view === 'bank') html = renderBank();
   else if (view === 'info') html = renderInfo();
   else if (view === 'examHistory') html = renderExamHistory();

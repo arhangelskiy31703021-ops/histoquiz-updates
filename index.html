@@ -924,6 +924,45 @@ div[style*="grid-template-columns: repeat(2"]{
   box-shadow:0 0 0 1px rgba(239,91,125,.35) inset;
 }
 
+
+/* === Интерактивные типы тестов: definition_order / drag_to_groups === */
+.order-list,.group-task{display:grid;gap:10px;margin:14px 0}
+.order-item,.group-card{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  gap:12px;
+  align-items:center;
+  padding:10px 12px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(255,255,255,.045);
+}
+.order-item span{
+  width:28px;height:28px;border-radius:10px;
+  display:grid;place-items:center;
+  background:rgba(177,124,255,.16);
+  font-weight:900;
+}
+.order-item b,.group-card b{font-size:15px;line-height:1.35}
+.order-actions{display:flex;gap:6px}
+.small-btn{padding:6px 9px;border-radius:10px}
+.group-card{grid-template-columns:1fr minmax(220px, 320px)}
+.group-card select{
+  width:100%;
+  background:#120a1d;
+  border:1px solid rgba(255,255,255,.12);
+  color:var(--text);
+  border-radius:12px;
+  padding:10px 12px;
+}
+.order-item.correct,.group-card.correct{border-color:rgba(78,214,168,.65);background:rgba(78,214,168,.12)}
+.order-item.wrong,.group-card.wrong{border-color:rgba(239,91,125,.65);background:rgba(239,91,125,.12)}
+@media (max-width:760px){
+  .group-card{grid-template-columns:1fr}
+  .order-item{grid-template-columns:auto 1fr}
+  .order-actions{grid-column:1 / -1}
+}
+
 </style>
 </head>
 <body>
@@ -2276,6 +2315,8 @@ async function loadDbFromSupabase() {
       type: "mcq",
       topic_block: q.topic_block || q.topicBlock || "",
       question: q.question || "",
+      question_type: q.question_type || q.questionType || "multiple_select",
+      task_data: q.task_data || q.taskData || {},
       options: Array.isArray(q.options) ? q.options : [],
       correct_index: Number.isFinite(Number(q.correct_index)) ? Number(q.correct_index) : null,
       correct_indexes: Array.isArray(q.correct_indexes) ? q.correct_indexes.map(Number) : (Number.isFinite(Number(q.correct_index)) ? [Number(q.correct_index)] : []),
@@ -3431,25 +3472,61 @@ async function startTopicTraining(kind, topicBlock) {
 
 
 
+
+function questionTypeOf(item) {
+  return String(item?.question_type || item?.questionType || 'multiple_select').trim() || 'multiple_select';
+}
+function taskDataOf(item) {
+  return item?.task_data || item?.taskData || {};
+}
+function orderedIndexesEqual(a, b) {
+  const x = (a || []).map(Number);
+  const y = (b || []).map(Number);
+  return x.length === y.length && x.every((v, i) => v === y[i]);
+}
+
 function prepareMcqItemForRun(item) {
+  const qType = questionTypeOf(item);
   const sourceOptions = Array.isArray(item?.options) ? item.options : [];
+  const taskData = taskDataOf(item);
+
+  if (qType === 'drag_to_groups') {
+    const groups = Array.isArray(taskData.groups) ? taskData.groups : [];
+    const cards = Array.isArray(taskData.cards) ? taskData.cards : sourceOptions.map((text, idx) => ({ id: String(idx), text }));
+    return {
+      ...item,
+      question_type: qType,
+      task_data: {
+        ...taskData,
+        groups,
+        cards: shuffle(cards.map(c => ({...c}))),
+        correctGroups: taskData.correctGroups || taskData.correct_groups || {}
+      }
+    };
+  }
+
   const correctSource = Array.isArray(item?.correct_indexes) && item.correct_indexes.length
     ? item.correct_indexes.map(Number)
     : (Number.isFinite(Number(item?.correct_index)) ? [Number(item.correct_index)] : []);
 
-  const mapped = sourceOptions.map((text, originalIndex) => ({
-    text,
-    originalIndex,
-    isCorrect: correctSource.includes(originalIndex)
-  }));
-
+  const mapped = sourceOptions.map((text, originalIndex) => ({ text, originalIndex }));
   const shuffled = shuffle(mapped);
-  const correctIndexes = shuffled
-    .map((opt, idx) => opt.isCorrect ? idx : -1)
-    .filter(idx => idx >= 0);
+
+  let correctIndexes;
+  if (qType === 'definition_order') {
+    correctIndexes = correctSource
+      .map(originalIndex => shuffled.findIndex(opt => opt.originalIndex === originalIndex))
+      .filter(idx => idx >= 0);
+  } else {
+    correctIndexes = shuffled
+      .map((opt, idx) => correctSource.includes(opt.originalIndex) ? idx : -1)
+      .filter(idx => idx >= 0);
+  }
 
   return {
     ...item,
+    question_type: qType,
+    task_data: taskData,
     options: shuffled.map(opt => opt.text),
     correct_index: correctIndexes[0] ?? null,
     correct_indexes: correctIndexes,
@@ -3468,10 +3545,11 @@ async function startTopicTest(topicBlock, mode = 'exam') {
     topicBlock,
     mode,
     title: `${topicBlock} — ${mode === 'drill' ? 'нарешка' : 'тестирование'}`,
-    queue: shuffle(source.map(item => deepClone(item))),
+    queue: shuffle(source.map(item => prepareMcqItemForRun(deepClone(item)))),
     currentIndex: 0,
     answers: [],
     selected: [],
+    groupAnswers: {},
     checked: false,
     finished: false,
     attempts: 0,
@@ -3489,46 +3567,138 @@ function correctIndexesForMcq(item) {
   const arr = Array.isArray(item?.correct_indexes) && item.correct_indexes.length
     ? item.correct_indexes.map(Number)
     : (Number.isFinite(Number(item?.correct_index)) ? [Number(item.correct_index)] : []);
-  return Array.from(new Set(arr)).sort((a, b) => a - b);
+  return questionTypeOf(item) === 'definition_order'
+    ? arr
+    : Array.from(new Set(arr)).sort((a, b) => a - b);
 }
 function sameIndexSet(a, b) {
   const x = Array.from(new Set((a || []).map(Number))).sort((m, n) => m - n);
   const y = Array.from(new Set((b || []).map(Number))).sort((m, n) => m - n);
   return x.length === y.length && x.every((v, i) => v === y[i]);
 }
+function selectedOrderForCurrent() {
+  const cur = currentMcqItem();
+  if (!cur) return [];
+  const total = Array.isArray(cur.options) ? cur.options.length : 0;
+  if (Array.isArray(state.mcqTest?.selected) && state.mcqTest.selected.length === total) return state.mcqTest.selected.slice();
+  return Array.from({length: total}, (_, i) => i);
+}
 
 function selectMcqOption(index) {
-  if (!state.mcqTest || state.mcqTest.checked) return;
-  const current = Array.isArray(state.mcqTest.selected) ? state.mcqTest.selected.slice() : [];
+  const test = state.mcqTest;
+  const cur = currentMcqItem();
+  if (!test || test.checked || !cur) return;
+  const qType = questionTypeOf(cur);
+
+  if (qType === 'definition_order') return;
+
+  const current = Array.isArray(test.selected) ? test.selected.slice() : [];
   const i = current.indexOf(index);
-  if (i >= 0) current.splice(i, 1);
-  else current.push(index);
-  state.mcqTest.selected = current.sort((a, b) => a - b);
+
+  if (qType === 'single_choice') {
+    test.selected = [index];
+  } else {
+    if (i >= 0) current.splice(i, 1);
+    else current.push(index);
+    test.selected = current.sort((a, b) => a - b);
+  }
   render();
+}
+
+function moveOrderItem(pos, direction) {
+  const test = state.mcqTest;
+  const cur = currentMcqItem();
+  if (!test || test.checked || !cur) return;
+  const order = selectedOrderForCurrent();
+  const target = pos + direction;
+  if (target < 0 || target >= order.length) return;
+  const tmp = order[pos];
+  order[pos] = order[target];
+  order[target] = tmp;
+  test.selected = order;
+  render();
+}
+
+function setGroupAnswer(cardId, groupId) {
+  const test = state.mcqTest;
+  if (!test || test.checked) return;
+  test.groupAnswers = {...(test.groupAnswers || {}), [cardId]: groupId};
+}
+
+function evaluateGroupAnswer(cur, groupAnswers) {
+  const taskData = taskDataOf(cur);
+  const groups = Array.isArray(taskData.groups) ? taskData.groups : [];
+  const cards = Array.isArray(taskData.cards) ? taskData.cards : [];
+  const correctGroups = taskData.correctGroups || taskData.correct_groups || {};
+  const total = cards.length;
+  let matched = 0;
+  const expectedByCard = {};
+  Object.entries(correctGroups).forEach(([groupId, cardIds]) => {
+    (cardIds || []).forEach(cardId => { expectedByCard[cardId] = groupId; });
+  });
+  cards.forEach(card => {
+    if (groupAnswers?.[card.id] && expectedByCard[card.id] && groupAnswers[card.id] === expectedByCard[card.id]) matched++;
+  });
+  const ok = total > 0 && matched === total;
+  const correctText = groups.map(g => `${g.title}: ${(correctGroups[g.id] || [])
+    .map(cardId => cards.find(c => c.id === cardId)?.text || cardId).join(', ')}`).join('; ');
+  return { ok, matched, total, correctText };
 }
 
 function checkMcqAnswer() {
   const test = state.mcqTest;
   const cur = currentMcqItem();
   if (!test || !cur) return;
-  if (!Array.isArray(test.selected) || !test.selected.length) {
-    alert('Сначала выбери один или несколько вариантов ответа.');
-    return;
+
+  const qType = questionTypeOf(cur);
+  let ok = false;
+  let selectedPayload = [];
+  let correctPayload = correctIndexesForMcq(cur);
+  let correctText = '';
+
+  if (qType === 'drag_to_groups') {
+    const cards = taskDataOf(cur).cards || [];
+    if (cards.some(card => !test.groupAnswers?.[card.id])) {
+      alert('Сначала распределите все карточки по группам.');
+      return;
+    }
+    const res = evaluateGroupAnswer(cur, test.groupAnswers || {});
+    ok = res.ok;
+    selectedPayload = {...(test.groupAnswers || {})};
+    correctPayload = taskDataOf(cur).correctGroups || taskDataOf(cur).correct_groups || {};
+    correctText = res.correctText;
+  } else if (qType === 'definition_order') {
+    const order = selectedOrderForCurrent();
+    const correctIndexes = correctIndexesForMcq(cur);
+    ok = orderedIndexesEqual(order, correctIndexes);
+    selectedPayload = order;
+    correctPayload = correctIndexes;
+    correctText = correctIndexes.map(i => cur.options?.[i] || '').join(' ');
+  } else {
+    if (!Array.isArray(test.selected) || !test.selected.length) {
+      alert('Сначала выбери один или несколько вариантов ответа.');
+      return;
+    }
+    const correctIndexes = correctIndexesForMcq(cur);
+    ok = sameIndexSet(test.selected, correctIndexes);
+    selectedPayload = test.selected.slice();
+    correctPayload = correctIndexes;
+    correctText = correctIndexes.map(i => cur.options?.[i] || '').filter(Boolean).join('; ') || cur.correct_answer || '';
   }
-  const correctIndexes = correctIndexesForMcq(cur);
-  const ok = sameIndexSet(test.selected, correctIndexes);
+
   test.answers[test.currentIndex] = {
     itemId: cur.id,
-    selected: test.selected.slice(),
-    correctIndexes,
+    selected: selectedPayload,
+    correctIndexes: correctPayload,
+    correctText,
     ok,
+    questionType: qType,
   };
+
   test.attempts = (test.attempts || 0) + 1;
   if (ok) test.correctCount = (test.correctCount || 0) + 1;
   else test.wrongCount = (test.wrongCount || 0) + 1;
 
-  // Нарешка: неправильный вопрос возвращается в конец очереди,
-  // пока пользователь не решит его правильно.
   if (test.mode === 'drill' && !ok) {
     test.queue.push(prepareMcqItemForRun(deepClone(cur)));
   }
@@ -3537,32 +3707,23 @@ function checkMcqAnswer() {
   render();
 }
 
+function resetMcqAttemptState() {
+  if (!state.mcqTest) return;
+  state.mcqTest.selected = [];
+  state.mcqTest.groupAnswers = {};
+  state.mcqTest.checked = false;
+}
+
 function nextMcqQuestion() {
   const test = state.mcqTest;
   if (!test) return;
-
-  if (test.mode === 'drill') {
-    // В drill-режиме массив queue может увеличиваться:
-    // ошибочные вопросы добавляются в конец, поэтому идём дальше,
-    // пока не пройдём все текущие и возвращённые вопросы.
-    if (test.currentIndex >= test.queue.length - 1) {
-      finishMcqTest();
-      return;
-    }
-    test.currentIndex++;
-    test.selected = [];
-    test.checked = false;
-    render();
-    return;
-  }
 
   if (test.currentIndex >= test.queue.length - 1) {
     finishMcqTest();
     return;
   }
   test.currentIndex++;
-  test.selected = [];
-  test.checked = false;
+  resetMcqAttemptState();
   render();
 }
 
@@ -3570,6 +3731,121 @@ function finishMcqTest() {
   if (!state.mcqTest) return;
   state.mcqTest.finished = true;
   render();
+}
+
+function userAnswerText(item, answer) {
+  const qType = answer?.questionType || questionTypeOf(item);
+  if (qType === 'drag_to_groups') {
+    const taskData = taskDataOf(item);
+    const groups = taskData.groups || [];
+    const cards = taskData.cards || [];
+    return groups.map(g => `${g.title}: ${cards
+      .filter(c => answer?.selected?.[c.id] === g.id)
+      .map(c => c.text).join(', ') || '—'}`).join('; ');
+  }
+  if (qType === 'definition_order') {
+    return Array.isArray(answer?.selected) ? answer.selected.map(i => item.options?.[i] || '').join(' ') : '—';
+  }
+  return Array.isArray(answer?.selected) && answer.selected.length
+    ? answer.selected.map(i => item.options?.[i] ?? '').filter(Boolean).join('; ')
+    : '—';
+}
+
+function correctAnswerText(item, answer) {
+  const qType = answer?.questionType || questionTypeOf(item);
+  if (qType === 'drag_to_groups') return answer?.correctText || evaluateGroupAnswer(item, {}).correctText || item.correct_answer || '—';
+  if (qType === 'definition_order') {
+    const correct = Array.isArray(answer?.correctIndexes) ? answer.correctIndexes : correctIndexesForMcq(item);
+    return correct.map(i => item.options?.[i] || '').join(' ') || item.correct_answer || '—';
+  }
+  const correctArr = Array.isArray(answer?.correctIndexes) && answer.correctIndexes.length ? answer.correctIndexes : correctIndexesForMcq(item);
+  return correctArr.map(i => item.options?.[i] ?? '').filter(Boolean).join('; ') || item.correct_answer || '—';
+}
+
+function renderOrderQuestion(cur, selected, correctIndexes, checked) {
+  const order = selected.length === cur.options.length ? selected : selectedOrderForCurrent();
+  return `
+    <p class="tiny" style="margin-top:6px">Соберите определение: поднимайте и опускайте фрагменты.</p>
+    <div class="order-list">
+      ${order.map((optionIndex, pos) => {
+        const text = cur.options?.[optionIndex] || '';
+        const isCorrectPos = checked && correctIndexes[pos] === optionIndex;
+        const isWrongPos = checked && correctIndexes[pos] !== optionIndex;
+        return `
+          <div class="order-item ${isCorrectPos ? 'correct' : ''} ${isWrongPos ? 'wrong' : ''}">
+            <span>${pos + 1}</span>
+            <b>${safeText(text)}</b>
+            <div class="order-actions">
+              <button type="button" class="ghost small-btn" onclick="moveOrderItem(${pos}, -1)">↑</button>
+              <button type="button" class="ghost small-btn" onclick="moveOrderItem(${pos}, 1)">↓</button>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderDragToGroupsQuestion(cur) {
+  const taskData = taskDataOf(cur);
+  const groups = Array.isArray(taskData.groups) ? taskData.groups : [];
+  const cards = Array.isArray(taskData.cards) ? taskData.cards : [];
+  const correctGroups = taskData.correctGroups || taskData.correct_groups || {};
+  const checked = state.mcqTest?.checked;
+  const answers = state.mcqTest?.groupAnswers || {};
+
+  return `
+    <p class="tiny" style="margin-top:6px">Распределите каждую карточку по группе.</p>
+    <div class="group-task">
+      ${cards.map(card => {
+        let expected = '';
+        Object.entries(correctGroups).forEach(([groupId, cardIds]) => {
+          if ((cardIds || []).includes(card.id)) expected = groupId;
+        });
+        const current = answers[card.id] || '';
+        const isCorrect = checked && current && current === expected;
+        const isWrong = checked && current && current !== expected;
+        return `
+          <div class="group-card ${isCorrect ? 'correct' : ''} ${isWrong ? 'wrong' : ''}">
+            <b>${safeText(card.text)}</b>
+            <select onchange="setGroupAnswer('${safeText(card.id)}', this.value)" ${checked ? 'disabled' : ''}>
+              <option value="">Выберите группу</option>
+              ${groups.map(g => `<option value="${safeText(g.id)}" ${current === g.id ? 'selected' : ''}>${safeText(g.title)}</option>`).join('')}
+            </select>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderChoiceQuestion(cur, selected, correctIndexes, checked) {
+  return `
+    <p class="tiny" style="margin-top:6px">${questionTypeOf(cur) === 'single_choice' ? 'Выберите один вариант ответа.' : 'Можно выбрать несколько вариантов ответа.'}</p>
+    <div class="mcq-options">
+      ${(cur.options || []).map((opt, idx) => {
+        const isSelected = selected.includes(idx);
+        const isCorrect = checked && correctIndexes.includes(idx);
+        const isWrong = checked && isSelected && !correctIndexes.includes(idx);
+        const letters = ['А','Б','В','Г','Д','Е','Ж','З','И','К','Л','М','Н','О','П'];
+        return `
+          <button type="button"
+            class="mcq-option compact ${isSelected ? 'selected' : ''} ${isCorrect ? 'correct' : ''} ${isWrong ? 'wrong' : ''}"
+            onclick="selectMcqOption(${idx})">
+            <span>${letters[idx] || String.fromCharCode(65 + idx)}</span>
+            <b>${safeText(opt)}</b>
+          </button>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function renderMcqBody(cur, selected, correctIndexes, checked) {
+  const qType = questionTypeOf(cur);
+  if (qType === 'definition_order') return renderOrderQuestion(cur, selected, correctIndexes, checked);
+  if (qType === 'drag_to_groups') return renderDragToGroupsQuestion(cur);
+  return renderChoiceQuestion(cur, selected, correctIndexes, checked);
 }
 
 function renderMcqTest() {
@@ -3597,15 +3873,12 @@ function renderMcqTest() {
           <div class="results">
             ${test.queue.map((item, idx) => {
               const a = test.answers[idx] || {};
-              const selectedText = Array.isArray(a.selected) && a.selected.length ? a.selected.map(i => item.options?.[i] ?? '').filter(Boolean).join('; ') : '—';
-              const correctArr = Array.isArray(a.correctIndexes) && a.correctIndexes.length ? a.correctIndexes : correctIndexesForMcq(item);
-              const correctText = correctArr.map(i => item.options?.[i] ?? '').filter(Boolean).join('; ') || item.correct_answer || '—';
               return `
                 <div class="result-row ${a.ok ? 'ok' : 'bad'}">
                   <div>
                     <strong>${idx + 1}. ${safeText(item.question || '')}</strong>
-                    <div class="tiny">Ваш ответ: ${safeText(selectedText)}</div>
-                    <div class="tiny">Правильно: ${safeText(correctText)}</div>
+                    <div class="tiny">Ваш ответ: ${safeText(userAnswerText(item, a))}</div>
+                    <div class="tiny">Правильно: ${safeText(correctAnswerText(item, a))}</div>
                     ${item.explanation ? `<div class="tiny">Пояснение: ${safeText(item.explanation)}</div>` : ''}
                   </div>
                   <strong>${a.ok ? 'верно' : 'ошибка'}</strong>
@@ -3625,6 +3898,10 @@ function renderMcqTest() {
   const cur = currentMcqItem();
   const selected = Array.isArray(test.selected) ? test.selected : [];
   const correctIndexes = correctIndexesForMcq(cur);
+  const qType = questionTypeOf(cur);
+  const checked = test.checked;
+  const correctText = checked ? correctAnswerText(cur, test.answers[test.currentIndex] || { correctIndexes, questionType: qType }) : '';
+
   return `
     <div class="shell">
       <div class="backline">
@@ -3637,39 +3914,23 @@ function renderMcqTest() {
             <div class="tiny">${test.mode === 'drill' ? `Нарешка · осталось в очереди: ${Math.max(1, total - test.currentIndex)}` : `Вопрос ${test.currentIndex + 1} из ${total}`}</div>
             <h2>${safeText(cur.question || '')}</h2>
           </div>
-          <span class="badge dev">${safeText(test.topicBlock)}</span>
+          <span class="badge dev">${safeText(qType)}</span>
         </div>
-        <p class="tiny" style="margin-top:6px">Можно выбрать несколько вариантов ответа.</p>
-        <div class="mcq-options">
-          ${(cur.options || []).map((opt, idx) => {
-            const isSelected = selected.includes(idx);
-            const isCorrect = test.checked && correctIndexes.includes(idx);
-            const isWrong = test.checked && isSelected && !correctIndexes.includes(idx);
-            const letters = ['А','Б','В','Г','Д','Е','Ж','З','И','К','Л','М','Н','О','П'];
-            return `
-              <button type="button"
-                class="mcq-option compact ${isSelected ? 'selected' : ''} ${isCorrect ? 'correct' : ''} ${isWrong ? 'wrong' : ''}"
-                onclick="selectMcqOption(${idx})">
-                <span>${letters[idx] || String.fromCharCode(65 + idx)}</span>
-                <b>${safeText(opt)}</b>
-              </button>
-            `;
-          }).join('')}
-        </div>
-        ${test.checked ? `
-          <div class="feedback ${sameIndexSet(selected, correctIndexes) ? 'ok show' : 'bad show'}">
-            <div class="title">${sameIndexSet(selected, correctIndexes) ? 'Верно' : 'Ошибка'}</div>
-            <div class="small">Правильный ответ: ${safeText(correctIndexes.map(i => cur.options?.[i] || '').filter(Boolean).join('; ') || cur.correct_answer || '')}</div>
+        ${renderMcqBody(cur, selected, correctIndexes, checked)}
+        ${checked ? `
+          <div class="feedback ${(test.answers[test.currentIndex]?.ok) ? 'ok show' : 'bad show'}">
+            <div class="title">${test.answers[test.currentIndex]?.ok ? 'Верно' : 'Ошибка'}</div>
+            <div class="small">Правильный ответ: ${safeText(correctText)}</div>
             ${cur.explanation ? `<div class="small" style="margin-top:8px">${safeText(cur.explanation)}</div>` : ''}
           </div>
         ` : ''}
         <div class="inline-actions">
-          ${test.checked
+          ${checked
             ? `<button class="primary" onclick="nextMcqQuestion()">${test.currentIndex >= test.queue.length - 1 ? 'Завершить' : 'Дальше'}</button>`
             : `<button class="primary" onclick="checkMcqAnswer()">Проверить</button>`}
           <button class="ghost" onclick="finishMcqTest()">Завершить тест</button>
         </div>
-        <div class="tiny">${test.mode === 'drill' ? `Попыток: ${test.attempts || 0} · Верно: ${test.correctCount || 0} · Ошибок: ${test.wrongCount || 0} · В очереди: ${Math.max(0, test.queue.length - test.currentIndex - (test.checked ? 1 : 0))}` : `Отвечено: ${answered} · Верно: ${correct}`}</div>
+        <div class="tiny">${test.mode === 'drill' ? `Попыток: ${test.attempts || 0} · Верно: ${test.correctCount || 0} · Ошибок: ${test.wrongCount || 0} · В очереди: ${Math.max(0, test.queue.length - test.currentIndex - (checked ? 1 : 0))}` : `Отвечено: ${answered} · Верно: ${correct}`}</div>
       </div>
     </div>
   `;

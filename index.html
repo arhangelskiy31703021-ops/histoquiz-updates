@@ -2186,7 +2186,7 @@ async function startTopicTest(topicBlock) {
     queue: shuffle(source.map(item => deepClone(item))),
     currentIndex: 0,
     answers: [],
-    selected: null,
+    selected: [],
     checked: false,
     finished: false,
   };
@@ -2197,10 +2197,25 @@ async function startTopicTest(topicBlock) {
 function currentMcqItem() {
   return state.mcqTest?.queue?.[state.mcqTest.currentIndex] || null;
 }
+function correctIndexesForMcq(item) {
+  const arr = Array.isArray(item?.correct_indexes) && item.correct_indexes.length
+    ? item.correct_indexes.map(Number)
+    : (Number.isFinite(Number(item?.correct_index)) ? [Number(item.correct_index)] : []);
+  return Array.from(new Set(arr)).sort((a, b) => a - b);
+}
+function sameIndexSet(a, b) {
+  const x = Array.from(new Set((a || []).map(Number))).sort((m, n) => m - n);
+  const y = Array.from(new Set((b || []).map(Number))).sort((m, n) => m - n);
+  return x.length === y.length && x.every((v, i) => v === y[i]);
+}
 
 function selectMcqOption(index) {
   if (!state.mcqTest || state.mcqTest.checked) return;
-  state.mcqTest.selected = index;
+  const current = Array.isArray(state.mcqTest.selected) ? state.mcqTest.selected.slice() : [];
+  const i = current.indexOf(index);
+  if (i >= 0) current.splice(i, 1);
+  else current.push(index);
+  state.mcqTest.selected = current.sort((a, b) => a - b);
   render();
 }
 
@@ -2208,16 +2223,16 @@ function checkMcqAnswer() {
   const test = state.mcqTest;
   const cur = currentMcqItem();
   if (!test || !cur) return;
-  if (test.selected === null || test.selected === undefined) {
-    alert('Сначала выбери вариант ответа.');
+  if (!Array.isArray(test.selected) || !test.selected.length) {
+    alert('Сначала выбери один или несколько вариантов ответа.');
     return;
   }
-  const correctIndex = Number(cur.correct_index);
-  const ok = Number(test.selected) === correctIndex;
+  const correctIndexes = correctIndexesForMcq(cur);
+  const ok = sameIndexSet(test.selected, correctIndexes);
   test.answers[test.currentIndex] = {
     itemId: cur.id,
-    selected: test.selected,
-    correctIndex,
+    selected: test.selected.slice(),
+    correctIndexes,
     ok,
   };
   test.checked = true;
@@ -2232,7 +2247,7 @@ function nextMcqQuestion() {
     return;
   }
   test.currentIndex++;
-  test.selected = null;
+  test.selected = [];
   test.checked = false;
   render();
 }
@@ -2264,8 +2279,9 @@ function renderMcqTest() {
           <div class="results">
             ${test.queue.map((item, idx) => {
               const a = test.answers[idx] || {};
-              const selectedText = item.options?.[a.selected] ?? '—';
-              const correctText = item.options?.[Number(item.correct_index)] ?? item.correct_answer ?? '—';
+              const selectedText = Array.isArray(a.selected) && a.selected.length ? a.selected.map(i => item.options?.[i] ?? '').filter(Boolean).join('; ') : '—';
+              const correctArr = Array.isArray(a.correctIndexes) && a.correctIndexes.length ? a.correctIndexes : correctIndexesForMcq(item);
+              const correctText = correctArr.map(i => item.options?.[i] ?? '').filter(Boolean).join('; ') || item.correct_answer || '—';
               return `
                 <div class="result-row ${a.ok ? 'ok' : 'bad'}">
                   <div>
@@ -2289,8 +2305,8 @@ function renderMcqTest() {
   }
 
   const cur = currentMcqItem();
-  const selected = test.selected;
-  const correctIndex = Number(cur.correct_index);
+  const selected = Array.isArray(test.selected) ? test.selected : [];
+  const correctIndexes = correctIndexesForMcq(cur);
   return `
     <div class="shell">
       <div class="backline">
@@ -2305,11 +2321,12 @@ function renderMcqTest() {
           </div>
           <span class="badge dev">${safeText(test.topicBlock)}</span>
         </div>
+        <p class="tiny" style="margin-top:6px">Можно выбрать несколько вариантов ответа.</p>
         <div class="mcq-options">
           ${(cur.options || []).map((opt, idx) => {
-            const isSelected = Number(selected) === idx;
-            const isCorrect = test.checked && idx === correctIndex;
-            const isWrong = test.checked && isSelected && idx !== correctIndex;
+            const isSelected = selected.includes(idx);
+            const isCorrect = test.checked && correctIndexes.includes(idx);
+            const isWrong = test.checked && isSelected && !correctIndexes.includes(idx);
             return `
               <button type="button"
                 class="mcq-option ${isSelected ? 'selected' : ''} ${isCorrect ? 'correct' : ''} ${isWrong ? 'wrong' : ''}"
@@ -2321,9 +2338,9 @@ function renderMcqTest() {
           }).join('')}
         </div>
         ${test.checked ? `
-          <div class="feedback ${Number(selected) === correctIndex ? 'ok show' : 'bad show'}">
-            <div class="title">${Number(selected) === correctIndex ? 'Верно' : 'Ошибка'}</div>
-            <div class="small">Правильный ответ: ${safeText(cur.options?.[correctIndex] || cur.correct_answer || '')}</div>
+          <div class="feedback ${sameIndexSet(selected, correctIndexes) ? 'ok show' : 'bad show'}">
+            <div class="title">${sameIndexSet(selected, correctIndexes) ? 'Верно' : 'Ошибка'}</div>
+            <div class="small">Правильный ответ: ${safeText(correctIndexes.map(i => cur.options?.[i] || '').filter(Boolean).join('; ') || cur.correct_answer || '')}</div>
             ${cur.explanation ? `<div class="small" style="margin-top:8px">${safeText(cur.explanation)}</div>` : ''}
           </div>
         ` : ''}

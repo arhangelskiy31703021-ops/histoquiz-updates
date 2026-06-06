@@ -1063,6 +1063,21 @@ div[style*="grid-template-columns: repeat(2"]{
   .group-column{min-height:auto}
 }
 
+
+/* === Итоговое тестирование по препаратам === */
+.prep-test-card{
+  background:linear-gradient(180deg, rgba(177,124,255,.10), rgba(255,255,255,.025));
+  border-color:rgba(177,124,255,.22);
+}
+.prep-test-card .inline-actions,
+.card .inline-actions{
+  gap:8px;
+}
+.card .inline-actions button{
+  padding:9px 12px;
+  border-radius:13px;
+}
+
 </style>
 </head>
 <body>
@@ -3521,10 +3536,11 @@ async function startTraining(kind, colloqId) {
   }
   state.training = {
     kind,
+    microMode: kind === 'micro' ? 'drill' : null,
     colloqId,
     topicBlock: null,
     title: `${db[colloqId].title} — ${kindLabel(kind)}`,
-    queue: shuffle(source.map(item => prepareMcqItemForRun(deepClone(item)))),
+    queue: shuffle(source.map(item => kind === 'mcq' ? prepareMcqItemForRun(deepClone(item)) : deepClone(item))),
     current: null,
     lastResult: null,
     resultDetail: null,
@@ -3569,6 +3585,62 @@ async function startTopicTraining(kind, topicBlock) {
   nextTrainingQuestion();
   render();
 }
+
+
+async function startMicroMode(scope = 'all', mode = 'drill') {
+  if (!(await checkCurrentUserAccess())) return;
+
+  let source = [];
+  let title = '';
+  let colloqId = null;
+
+  if (scope === 'all') {
+    source = allMicro();
+    title = mode === 'final'
+      ? 'Итоговое тестирование по всем препаратам'
+      : 'Нарешка по всем препаратам';
+  } else {
+    colloqId = scope;
+    source = itemsForTraining('micro', colloqId).map(item => ({
+      ...item,
+      colloqId,
+      colloqNum: db[colloqId]?.num
+    }));
+    const colTitle = db[colloqId]?.title || 'Коллоквиум';
+    title = mode === 'final'
+      ? `${colTitle} — итоговое тестирование по препаратам`
+      : `${colTitle} — нарешка по препаратам`;
+  }
+
+  if (!source || !source.length) {
+    alert('Препараты пока не загружены.');
+    return;
+  }
+
+  state.training = {
+    kind: 'micro',
+    microMode: mode,
+    colloqId,
+    topicBlock: null,
+    title,
+    queue: shuffle(source.map(item => deepClone(item))),
+    current: null,
+    lastResult: null,
+    resultDetail: null,
+    answered: 0,
+    correct: 0,
+    done: false,
+    currentAttempt: {},
+    awaitingGrade: false,
+    selectedGrade: null,
+    suggestedGrade: null,
+    gradeHistory: [],
+  };
+  state.view = 'training';
+  nextTrainingQuestion();
+  render();
+}
+
 
 
 
@@ -4228,17 +4300,31 @@ function finalizeTrainingGrade(grade) {
   tr.selectedGrade = null;
   if (g === 5) {
     nextTrainingQuestion();
-  } else {
-    if (Math.random() < 0.5) {
-      tr.queue.push(cur);
-    } else {
-      const maxGap = Math.min(3, Math.max(1, tr.queue.length));
-      const gap = 1 + Math.floor(Math.random() * maxGap);
-      const pos = Math.min(tr.queue.length, gap);
-      tr.queue.splice(pos, 0, cur);
-    }
-    nextTrainingQuestion();
+    return;
   }
+
+  if (tr.kind === 'micro' && tr.microMode === 'final') {
+    // Итоговое тестирование: каждый препарат показывается один раз.
+    nextTrainingQuestion();
+    return;
+  }
+
+  if (tr.kind === 'micro' && tr.microMode === 'drill') {
+    // Нарешка препаратов: ошибка всегда возвращается в конец очереди.
+    tr.queue.push(deepClone(cur));
+    nextTrainingQuestion();
+    return;
+  }
+
+  if (Math.random() < 0.5) {
+    tr.queue.push(cur);
+  } else {
+    const maxGap = Math.min(3, Math.max(1, tr.queue.length));
+    const gap = 1 + Math.floor(Math.random() * maxGap);
+    const pos = Math.min(tr.queue.length, gap);
+    tr.queue.splice(pos, 0, cur);
+  }
+  nextTrainingQuestion();
 }
 function checkTrainingAutoNext() {
   // no-op placeholder
@@ -4637,7 +4723,31 @@ function renderDashboard() {
 
   let cards = '';
   if (state.section === 'microscopy') {
-    cards = Object.values(db).filter(col => (col.microscopy || []).length > 0).sort((a,b)=>(a.num||0)-(b.num||0)).map(col => {
+    const microCols = Object.values(db).filter(col => (col.microscopy || []).length > 0).sort((a,b)=>(a.num||0)-(b.num||0));
+    const allPrepCount = allMicro().length;
+    const allPrepLearned = allMicro().filter(i => learnedSet().has(i.id)).length;
+    const allPrepPercent = allPrepCount ? Math.round(allPrepLearned / allPrepCount * 100) : 0;
+    const microGlobalPanel = `
+      <div class="card prep-test-card">
+        <div class="card-top">
+          <div>
+            <h4>Все препараты</h4>
+            <p>Общая нарешка и итоговое тестирование по всем загруженным препаратам. Берёт данные из таблицы preparations.</p>
+          </div>
+          <span class="badge dev">${allPrepCount} преп.</span>
+        </div>
+        <div class="progress"><span style="width:${allPrepPercent}%"></span></div>
+        <div class="meta">
+          <span>${allPrepLearned} / ${allPrepCount} изучено</span>
+          <span>${allPrepPercent}%</span>
+        </div>
+        <div class="inline-actions" style="margin-top:12px">
+          <button class="primary" type="button" onclick="event.stopPropagation(); startMicroMode('all','drill')">Нарешка всех</button>
+          <button class="ghost" type="button" onclick="event.stopPropagation(); startMicroMode('all','final')">Итоговое тестирование</button>
+        </div>
+      </div>
+    `;
+    cards = microGlobalPanel + microCols.map(col => {
       const activeType = state.section;
       const items = col[keyMap[activeType]] || [];
       const totalItems = items.length;
@@ -4658,6 +4768,10 @@ function renderDashboard() {
             <span>${learnedItems} / ${totalItems} преп.</span>
             <span>${percent}%</span>
           </div>
+          <div class="inline-actions" style="margin-top:12px">
+            <button class="primary" type="button" onclick="event.stopPropagation(); startMicroMode('${col.id}','drill')">Нарешка</button>
+            <button class="ghost" type="button" onclick="event.stopPropagation(); startMicroMode('${col.id}','final')">Итог</button>
+          </div>
         </div>
       `;
     }).join('');
@@ -4667,7 +4781,7 @@ function renderDashboard() {
   }
 
   const subtitle = state.section === 'microscopy'
-    ? 'Нажмите на карточку раздела для запуска тренировки по препаратам.'
+    ? 'Выберите нарешку или итоговое тестирование по препаратам. В итоговом режиме каждый препарат показывается один раз.'
     : state.section === 'mcq'
       ? 'Выберите тему тестирования. Здесь будут сложные вопросы с вариантами ответов. Экзамен при этом остаётся независимым.'
       : 'Выберите блок темы. Экзаменационный режим не зависит от этих блоков и работает по старой логике.';
@@ -4793,9 +4907,13 @@ function renderTraining() {
         <div class="backline"><button class="ghost" onclick="showView('dashboard')">← Назад</button><div class="muted">${safeText(tr.title)}</div></div>
         <div class="panel pad">
           <h2 style="margin-top:0">Тренировка завершена</h2>
-          <p class="muted">Оценённые ответы: ${correct} из ${total}. Текущий результат: ${percent}%.</p>
+          <p class="muted">
+            ${tr.kind === 'micro' && tr.microMode === 'final'
+              ? `Итоговое тестирование завершено. Правильно: <strong>${correct}</strong> из <strong>${total}</strong>. Результат: <strong>${percent}%</strong>.`
+              : `Оценённые ответы: <strong>${correct}</strong> из <strong>${total}</strong>. Текущий результат: <strong>${percent}%</strong>.`}
+          </p>
           <div class="inline-actions">
-            <button class="primary" onclick="${tr.topicBlock ? `startTopicTraining('${tr.kind}', decodeURIComponent('${encodeURIComponent(tr.topicBlock)}'))` : `startTraining('${tr.kind}','${tr.colloqId}')`}">Повторить</button>
+            <button class="primary" onclick="${tr.kind === 'micro' && tr.microMode ? `startMicroMode('${tr.colloqId || 'all'}', '${tr.microMode}')` : tr.topicBlock ? `startTopicTraining('${tr.kind}', decodeURIComponent('${encodeURIComponent(tr.topicBlock)}'))` : `startTraining('${tr.kind}','${tr.colloqId}')`}">Повторить</button>
             <button class="ghost" onclick="showView('dashboard')">Вернуться на дашборд</button>
           </div>
         </div>
@@ -4805,6 +4923,7 @@ function renderTraining() {
   let right = '';
   if (tr.kind === 'micro') {
     right = `
+      <div class="tiny">${tr.microMode === 'final' ? 'Итоговое тестирование: препарат не возвращается в очередь.' : 'Нарешка: ошибка вернёт препарат в конец очереди.'}</div>
       <div class="field"><label>Название препарата</label><input id="ansName" placeholder="Введите название..." value="${safeText(tr.currentAttempt.name || '')}" oninput="state.training.currentAttempt.name=this.value" /></div>
       <div class="field"><label>Типичная окраска</label>
         <select id="ansStain" onchange="state.training.currentAttempt.stain=this.value">

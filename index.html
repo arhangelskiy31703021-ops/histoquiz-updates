@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>HistoQuiz Pro Vundervaflia</title>
-  <style>
+  <script type="text/javascript" src="https://gc.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=vVlvBOlbb05wIjtZiNbK86QyLzcFMhzXVOmHeA6kkW66C7rFQLpipuRiD7P07AexQNbp3HPjZxhoTHqH_OFibDnr0rvfzhcgC5Cjlbavqg27xmb6FzFXTO5XXZ3hGpf0Xu8S9SItTgSZgIMeikOlJrjOytd33rS1UZdvx5b7hC_RK06Pn32L6HNNYpCGAz2TiFGwWVEs4oemgaTwAsk6jxx7oW86qJqZSw2Ta-bmZiVseE3ctiIISGcR9_kaZpXUvfA3oZoCKrjPM0odReUEwF765pfW1Zf6gJjbfAem4W6AdAoY4Ej0oOit57MZPJkyV0whLO9n5MYrf8EJIEw7hQ" charset="UTF-8"></script><style>
     :root{
       --bg:#120a1e;
       --bg2:#1a102a;
@@ -1076,6 +1076,45 @@ div[style*="grid-template-columns: repeat(2"]{
 .card .inline-actions button{
   padding:9px 12px;
   border-radius:13px;
+}
+
+
+/* === Препараты: варианты окраски + таймер 40 сек === */
+.micro-timer-card{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  padding:12px 14px;
+  margin:0 0 12px;
+  border-radius:16px;
+  border:1px solid rgba(177,124,255,.22);
+  background:rgba(177,124,255,.08);
+}
+.micro-timer-card strong{
+  display:block;
+  font-size:14px;
+}
+.micro-timer-card span{
+  display:block;
+  color:var(--muted);
+  font-size:12px;
+  margin-top:2px;
+}
+.micro-timer-values{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:4px;
+  min-width:130px;
+}
+.micro-timer-values span{
+  margin:0;
+  color:var(--text);
+  font-weight:900;
+}
+.micro-timer-values .timer-bad{
+  color:var(--danger);
 }
 
 </style>
@@ -2987,6 +3026,25 @@ function sameText(a, b) {
   if (y.length >= 4 && x.includes(y)) return true;
   return false;
 }
+function sameStain(a, b) {
+  const x = normalize(a);
+  const y = normalize(b);
+  if (!x || !y) return false;
+  if (sameText(x, y)) return true;
+  const groups = [
+    ['гематоксилин эозин', 'г э', 'гэ', 'he', 'h e'],
+    ['романовский гимза', 'романовского гимза', 'гимза'],
+    ['метод маллори', 'маллори', 'по маллори'],
+    ['метод по шморлю', 'по шморлю', 'шморль', 'шморлю'],
+    ['железный гематоксилин', 'железный гемотоксилин', 'гематоксилин железный'],
+    ['импрегнация серебром', 'серебро', 'импрегнация'],
+    ['орсеин'],
+    ['осмий'],
+    ['пас', 'pas'],
+    ['судан']
+  ];
+  return groups.some(group => group.includes(x) && group.includes(y));
+}
 function matchVariants(input, variants) {
   if (!Array.isArray(variants)) return sameText(input, variants);
   return variants.some(v => sameText(input, v));
@@ -4179,6 +4237,8 @@ function nextTrainingQuestion() {
   state.training.awaitingGrade = false;
   state.training.evaluation = null;
   state.training.selectedGrade = null;
+  state.training.questionStartedAt = Date.now();
+  state.training.currentElapsedSec = null;
   render();
 }
 function clampGrade(v) {
@@ -4192,7 +4252,7 @@ function evaluateItem(item, attempt) {
   const a = attempt || {};
   if (cur.type === 'micro') {
     const nameOk = sameText(a.name, cur.name) || normalize(cur.name).includes(normalize(a.name || ''));
-    const stainOk = sameText(a.stain, cur.stain);
+    const stainOk = sameStain(a.stain, cur.stain);
     const ok = nameOk && stainOk;
     return {
       ok,
@@ -4263,7 +4323,12 @@ function submitTrainingAnswer() {
   const tr = state.training;
   if (!tr || !tr.current || tr.awaitingGrade) return;
   const cur = tr.current;
+  const elapsed = tr.questionStartedAt ? Math.max(0, Math.round((Date.now() - tr.questionStartedAt) / 1000)) : null;
+  tr.currentElapsedSec = elapsed;
   const evalData = evaluateItem(cur, tr.currentAttempt);
+  if (cur.type === 'micro' && elapsed !== null) {
+    evalData.detail = `${evalData.detail}. Время ответа: ${elapsed} сек${elapsed > 40 ? ' (больше 40 сек)' : ''}.`;
+  }
   tr.awaitingGrade = true;
   tr.evaluation = evalData;
   tr.lastResult = evalData.ok;
@@ -4278,7 +4343,11 @@ function finalizeTrainingGrade(grade) {
   const g = clampGrade(grade);
   tr.answered = (tr.answered || 0) + 1;
   tr.gradeHistory = tr.gradeHistory || [];
-  tr.gradeHistory.push({id: cur.id, grade: g});
+  tr.gradeHistory.push({id: cur.id, grade: g, elapsedSec: tr.currentElapsedSec});
+  if (tr.kind === 'micro' && typeof tr.currentElapsedSec === 'number') {
+    tr.timeHistory = tr.timeHistory || [];
+    tr.timeHistory.push({id: cur.id, elapsedSec: tr.currentElapsedSec, grade: g});
+  }
   tr.correct = (tr.correct || 0) + (g === 5 ? 1 : 0);
   applyGradeToProgress(cur, g);
   tr.lastGrade = g;
@@ -4377,6 +4446,7 @@ async function startExam() {
       return;
     }
     renderExamTimer();
+  updateMicroTimerDisplay();
   }, 1000);
   render();
 }
@@ -4879,6 +4949,8 @@ function renderTraining() {
     const total = tr.answered || 0;
     const correct = tr.correct || 0;
     const percent = total ? Math.round(correct / total * 100) : 0;
+    const times = Array.isArray(tr.timeHistory) ? tr.timeHistory.map(x => Number(x.elapsedSec)).filter(Number.isFinite) : [];
+    const avgTime = times.length ? Math.round(times.reduce((s, v) => s + v, 0) / times.length) : null;
     return `
       <div class="shell">
         <div class="backline"><button class="ghost" onclick="showView('dashboard')">← Назад</button><div class="muted">${safeText(tr.title)}</div></div>
@@ -4888,6 +4960,7 @@ function renderTraining() {
             ${tr.kind === 'micro' && tr.microMode === 'final'
               ? `Итоговое тестирование завершено. Правильно: <strong>${correct}</strong> из <strong>${total}</strong>. Результат: <strong>${percent}%</strong>.`
               : `Оценённые ответы: <strong>${correct}</strong> из <strong>${total}</strong>. Текущий результат: <strong>${percent}%</strong>.`}
+            ${tr.kind === 'micro' && avgTime !== null ? `<br>Среднее время определения препарата: <strong>${avgTime} сек</strong>.` : ''}
           </p>
           <div class="inline-actions">
             <button class="primary" onclick="${tr.kind === 'micro' && tr.microMode ? `startMicroMode('${tr.colloqId || 'all'}', '${tr.microMode}')` : tr.topicBlock ? `startTopicTraining('${tr.kind}', decodeURIComponent('${encodeURIComponent(tr.topicBlock)}'))` : `startTraining('${tr.kind}','${tr.colloqId}')`}">Повторить</button>
@@ -4900,12 +4973,22 @@ function renderTraining() {
   let right = '';
   if (tr.kind === 'micro') {
     right = `
+      <div class="micro-timer-card">
+        <div>
+          <strong>Таймер определения</strong>
+          <span>норма: 40 сек</span>
+        </div>
+        <div class="micro-timer-values">
+          <span id="microTimerLeft">—</span>
+          <span id="microTimerSpent">—</span>
+        </div>
+      </div>
       <div class="tiny">${tr.microMode === 'final' ? 'Итоговое тестирование: препарат не возвращается в очередь.' : 'Нарешка: ошибка вернёт препарат в конец очереди.'}</div>
       <div class="field"><label>Название препарата</label><input id="ansName" placeholder="Введите название..." value="${safeText(tr.currentAttempt.name || '')}" oninput="state.training.currentAttempt.name=this.value" /></div>
       <div class="field"><label>Типичная окраска</label>
         <select id="ansStain" onchange="state.training.currentAttempt.stain=this.value">
           <option value="">Выберите окраску</option>
-          ${['Гематоксилин-эозин','Романовский–Гимза','Осмий','Орсеин','Импрегнация серебром','Пас','Судан'].map(v => `<option ${tr.currentAttempt.stain===v?'selected':''}>${v}</option>`).join('')}
+          ${['Гематоксилин-эозин','Романовский-Гимза','Осмий','Орсеин','Импрегнация серебром','Метод Маллори','Метод по Шморлю','Железный гематоксилин','ПАС','Судан'].map(v => `<option ${tr.currentAttempt.stain===v?'selected':''}>${v}</option>`).join('')}
         </select>
       </div>
     `;
@@ -5358,6 +5441,19 @@ function renderSettings() {
     </div>
   `;
 }
+function updateMicroTimerDisplay() {
+  const tr = state.training;
+  const leftEl = document.getElementById('microTimerLeft');
+  const spentEl = document.getElementById('microTimerSpent');
+  if (!leftEl || !spentEl || !tr || tr.kind !== 'micro' || !tr.current || !tr.questionStartedAt) return;
+  const elapsed = tr.currentElapsedSec ?? Math.max(0, Math.round((Date.now() - tr.questionStartedAt) / 1000));
+  const left = Math.max(0, 40 - elapsed);
+  leftEl.textContent = left > 0 ? `осталось ${left} сек` : 'время вышло';
+  spentEl.textContent = `идёт ${elapsed} сек`;
+  leftEl.classList.toggle('timer-bad', elapsed > 40);
+}
+setInterval(updateMicroTimerDisplay, 1000);
+
 function render() {
   const app = document.getElementById('app');
   if (!app) return;

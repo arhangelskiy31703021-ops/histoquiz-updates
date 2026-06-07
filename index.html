@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>HistoQuiz Pro Vundervaflia</title>
-  <script type="text/javascript" src="https://gc.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=vVlvBOlbb05wIjtZiNbK86QyLzcFMhzXVOmHeA6kkW66C7rFQLpipuRiD7P07AexQNbp3HPjZxhoTHqH_OFibDnr0rvfzhcgC5Cjlbavqg27xmb6FzFXTO5XXZ3hGpf0Xu8S9SItTgSZgIMeikOlJrjOytd33rS1UZdvx5b7hC_RK06Pn32L6HNNYpCGAz2TiFGwWVEs4oemgaTwAsk6jxx7oW86qJqZSw2Ta-bmZiVseE3ctiIISGcR9_kaZpXUvfA3oZoCKrjPM0odReUEwF765pfW1Zf6gJjbfAem4W6AdAoY4Ej0oOit57MZPJkyV0whLO9n5MYrf8EJIEw7hQ" charset="UTF-8"></script><style>
+  <script type="text/javascript" src="https://gc.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=rV755ZY-SWz3ei3xt9E0nbf4RuuVBpmJVt_Bl_Sbr8dE3D7plR3-L32jpJNkZ7JPwA5T1_HoKfxCNDYfSoh3Edy2CfBv_TvIAfPm2dQ9zzZmPP_Tv6CYDzC61xTSMdz1-mUQZD1UBpqJAFoZTmydygN-8FOB1c8O-voOvtl-lgep1LzqTLauF7L8NqJw2lfTCgcAZx7MzR4bDaNL_5ysX0RFzIsPh2_wQ_mWJ44L-ZW2f6bhv3J5fMMCUPH3W6REJWNpuCWewH_w6ubTpqff04_Q1SIZ0L81IMl3StY5r4UFwkVHUjYkRUNXpQ69rg5VoEGj8_L9E3T3RI2WewZRhAj4nVdH5l2wcGtB1tgpqmI" charset="UTF-8"></script><style>
     :root{
       --bg:#120a1e;
       --bg2:#1a102a;
@@ -1115,6 +1115,53 @@ div[style*="grid-template-columns: repeat(2"]{
 }
 .micro-timer-values .timer-bad{
   color:var(--danger);
+}
+
+
+/* === Песочные часы и авто-незачёт после 40 сек === */
+.micro-timer-card.timeout{
+  border-color:rgba(239,91,125,.55);
+  background:rgba(239,91,125,.10);
+  animation: timeoutPulse 1s ease-in-out infinite;
+}
+.micro-timer-title{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.micro-hourglass{
+  width:36px;
+  height:36px;
+  display:grid;
+  place-items:center;
+  border-radius:14px;
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.10);
+  font-size:20px;
+}
+.micro-hourglass.active{
+  animation: hourglassFlip .85s ease-in-out infinite;
+  background:rgba(239,91,125,.14);
+  border-color:rgba(239,91,125,.35);
+}
+.timeout-banner{
+  margin:0 0 12px;
+  padding:11px 13px;
+  border-radius:15px;
+  border:1px solid rgba(239,91,125,.38);
+  background:rgba(239,91,125,.12);
+  color:var(--text);
+  font-weight:900;
+  line-height:1.35;
+}
+@keyframes hourglassFlip{
+  0%{transform:rotate(0deg) scale(1)}
+  45%{transform:rotate(180deg) scale(1.08)}
+  100%{transform:rotate(360deg) scale(1)}
+}
+@keyframes timeoutPulse{
+  0%,100%{box-shadow:0 0 0 rgba(239,91,125,0)}
+  50%{box-shadow:0 0 0 4px rgba(239,91,125,.10)}
 }
 
 </style>
@@ -4321,7 +4368,7 @@ function applyGradeToProgress(item, grade) {
 }
 function submitTrainingAnswer() {
   const tr = state.training;
-  if (!tr || !tr.current || tr.awaitingGrade) return;
+  if (!tr || !tr.current || tr.awaitingGrade || tr.microTimedOut) return;
   const cur = tr.current;
   const elapsed = tr.questionStartedAt ? Math.max(0, Math.round((Date.now() - tr.questionStartedAt) / 1000)) : null;
   tr.currentElapsedSec = elapsed;
@@ -4951,6 +4998,7 @@ function renderTraining() {
     const percent = total ? Math.round(correct / total * 100) : 0;
     const times = Array.isArray(tr.timeHistory) ? tr.timeHistory.map(x => Number(x.elapsedSec)).filter(Number.isFinite) : [];
     const avgTime = times.length ? Math.round(times.reduce((s, v) => s + v, 0) / times.length) : null;
+    const timeoutCount = Array.isArray(tr.timeHistory) ? tr.timeHistory.filter(x => x.timeout).length : 0;
     return `
       <div class="shell">
         <div class="backline"><button class="ghost" onclick="showView('dashboard')">← Назад</button><div class="muted">${safeText(tr.title)}</div></div>
@@ -4961,6 +5009,7 @@ function renderTraining() {
               ? `Итоговое тестирование завершено. Правильно: <strong>${correct}</strong> из <strong>${total}</strong>. Результат: <strong>${percent}%</strong>.`
               : `Оценённые ответы: <strong>${correct}</strong> из <strong>${total}</strong>. Текущий результат: <strong>${percent}%</strong>.`}
             ${tr.kind === 'micro' && avgTime !== null ? `<br>Среднее время определения препарата: <strong>${avgTime} сек</strong>.` : ''}
+            ${tr.kind === 'micro' && timeoutCount ? `<br>Не решено по таймеру: <strong>${timeoutCount}</strong>.` : ''}
           </p>
           <div class="inline-actions">
             <button class="primary" onclick="${tr.kind === 'micro' && tr.microMode ? `startMicroMode('${tr.colloqId || 'all'}', '${tr.microMode}')` : tr.topicBlock ? `startTopicTraining('${tr.kind}', decodeURIComponent('${encodeURIComponent(tr.topicBlock)}'))` : `startTraining('${tr.kind}','${tr.colloqId}')`}">Повторить</button>
@@ -4973,20 +5022,24 @@ function renderTraining() {
   let right = '';
   if (tr.kind === 'micro') {
     right = `
-      <div class="micro-timer-card">
-        <div>
-          <strong>Таймер определения</strong>
-          <span>норма: 40 сек</span>
+      <div class="micro-timer-card ${tr.microTimedOut ? 'timeout' : ''}">
+        <div class="micro-timer-title">
+          <div id="microHourglass" class="micro-hourglass ${tr.microTimedOut ? 'active' : ''}">⌛</div>
+          <div>
+            <strong>Таймер определения</strong>
+            <span>норма: 40 сек</span>
+          </div>
         </div>
         <div class="micro-timer-values">
           <span id="microTimerLeft">—</span>
           <span id="microTimerSpent">—</span>
         </div>
       </div>
+      ${tr.microTimedOut ? `<div class="timeout-banner">⌛ ${safeText(tr.timeoutMessage || 'Время вышло. Препарат засчитан как нерешённый.')}</div>` : ''}
       <div class="tiny">${tr.microMode === 'final' ? 'Итоговое тестирование: препарат не возвращается в очередь.' : 'Нарешка: ошибка вернёт препарат в конец очереди.'}</div>
-      <div class="field"><label>Название препарата</label><input id="ansName" placeholder="Введите название..." value="${safeText(tr.currentAttempt.name || '')}" oninput="state.training.currentAttempt.name=this.value" /></div>
+      <div class="field"><label>Название препарата</label><input id="ansName" placeholder="Введите название..." value="${safeText(tr.currentAttempt.name || '')}" ${tr.microTimedOut ? 'disabled' : ''} oninput="state.training.currentAttempt.name=this.value" /></div>
       <div class="field"><label>Типичная окраска</label>
-        <select id="ansStain" onchange="state.training.currentAttempt.stain=this.value">
+        <select id="ansStain" ${tr.microTimedOut ? 'disabled' : ''} onchange="state.training.currentAttempt.stain=this.value">
           <option value="">Выберите окраску</option>
           ${['Гематоксилин-эозин','Романовский-Гимза','Осмий','Орсеин','Импрегнация серебром','Метод Маллори','Метод по Шморлю','Железный гематоксилин','ПАС','Судан'].map(v => `<option ${tr.currentAttempt.stain===v?'selected':''}>${v}</option>`).join('')}
         </select>
@@ -5441,18 +5494,61 @@ function renderSettings() {
     </div>
   `;
 }
+function autoFailMicroByTimeout() {
+  const tr = state.training;
+  if (!tr || tr.kind !== 'micro' || !tr.current || tr.awaitingGrade || tr.microTimedOut) return;
+
+  const cur = tr.current;
+  const elapsed = tr.questionStartedAt ? Math.max(40, Math.round((Date.now() - tr.questionStartedAt) / 1000)) : 40;
+
+  tr.microTimedOut = true;
+  tr.currentElapsedSec = elapsed;
+  tr.timeoutMessage = 'Время вышло. Препарат засчитан как нерешённый.';
+  tr.answered = (tr.answered || 0) + 1;
+
+  tr.gradeHistory = tr.gradeHistory || [];
+  tr.gradeHistory.push({id: cur.id, grade: 2, elapsedSec: elapsed, timeout: true});
+
+  tr.timeHistory = tr.timeHistory || [];
+  tr.timeHistory.push({id: cur.id, elapsedSec: elapsed, grade: 2, timeout: true});
+
+  applyGradeToProgress(cur, 2);
+
+  if (tr.microMode === 'drill') {
+    tr.queue.push(deepClone(cur));
+  }
+
+  render();
+
+  setTimeout(() => {
+    if (!state.training || state.training !== tr) return;
+    if (!tr.microTimedOut) return;
+    tr.microTimedOut = false;
+    tr.timeoutMessage = null;
+    nextTrainingQuestion();
+  }, 1400);
+}
+
 function updateMicroTimerDisplay() {
   const tr = state.training;
   const leftEl = document.getElementById('microTimerLeft');
   const spentEl = document.getElementById('microTimerSpent');
+  const hourglassEl = document.getElementById('microHourglass');
   if (!leftEl || !spentEl || !tr || tr.kind !== 'micro' || !tr.current || !tr.questionStartedAt) return;
+
   const elapsed = tr.currentElapsedSec ?? Math.max(0, Math.round((Date.now() - tr.questionStartedAt) / 1000));
   const left = Math.max(0, 40 - elapsed);
+
   leftEl.textContent = left > 0 ? `осталось ${left} сек` : 'время вышло';
   spentEl.textContent = `идёт ${elapsed} сек`;
-  leftEl.classList.toggle('timer-bad', elapsed > 40);
+  leftEl.classList.toggle('timer-bad', elapsed >= 40);
+  if (hourglassEl) hourglassEl.classList.toggle('active', elapsed >= 40 || !!tr.microTimedOut);
+
+  if (elapsed >= 40 && !tr.awaitingGrade && !tr.microTimedOut) {
+    autoFailMicroByTimeout();
+  }
 }
-setInterval(updateMicroTimerDisplay, 1000);
+setInterval(updateMicroTimerDisplay, 500);
 
 function render() {
   const app = document.getElementById('app');

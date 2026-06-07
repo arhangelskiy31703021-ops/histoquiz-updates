@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>HistoQuiz Pro Vundervaflia</title>
-  <script type="text/javascript" src="https://gc.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=rV755ZY-SWz3ei3xt9E0nbf4RuuVBpmJVt_Bl_Sbr8dE3D7plR3-L32jpJNkZ7JPwA5T1_HoKfxCNDYfSoh3Edy2CfBv_TvIAfPm2dQ9zzZmPP_Tv6CYDzC61xTSMdz1-mUQZD1UBpqJAFoZTmydygN-8FOB1c8O-voOvtl-lgep1LzqTLauF7L8NqJw2lfTCgcAZx7MzR4bDaNL_5ysX0RFzIsPh2_wQ_mWJ44L-ZW2f6bhv3J5fMMCUPH3W6REJWNpuCWewH_w6ubTpqff04_Q1SIZ0L81IMl3StY5r4UFwkVHUjYkRUNXpQ69rg5VoEGj8_L9E3T3RI2WewZRhAj4nVdH5l2wcGtB1tgpqmI" charset="UTF-8"></script><style>
+  <style>
     :root{
       --bg:#120a1e;
       --bg2:#1a102a;
@@ -1130,19 +1130,56 @@ div[style*="grid-template-columns: repeat(2"]{
   gap:10px;
 }
 .micro-hourglass{
-  width:36px;
-  height:36px;
+  width:38px;
+  height:38px;
   display:grid;
   place-items:center;
   border-radius:14px;
   background:rgba(255,255,255,.07);
-  border:1px solid rgba(255,255,255,.10);
-  font-size:20px;
+  border:1px solid rgba(255,255,255,.12);
+  position:relative;
+  overflow:hidden;
+}
+.micro-hourglass::before,
+.micro-hourglass::after{
+  content:"";
+  position:absolute;
+  left:11px;
+  width:16px;
+  height:14px;
+  border:2px solid rgba(255,255,255,.72);
+}
+.micro-hourglass::before{
+  top:5px;
+  border-bottom:none;
+  border-radius:9px 9px 3px 3px;
+}
+.micro-hourglass::after{
+  bottom:5px;
+  border-top:none;
+  border-radius:3px 3px 9px 9px;
+}
+.micro-hourglass span{
+  position:absolute;
+  top:8px;
+  left:17px;
+  width:4px;
+  height:22px;
+  border-radius:999px;
+  background:linear-gradient(to bottom, rgba(255,255,255,.85), rgba(255,255,255,.18), rgba(255,255,255,.85));
+  transform-origin:center;
 }
 .micro-hourglass.active{
-  animation: hourglassFlip .85s ease-in-out infinite;
-  background:rgba(239,91,125,.14);
-  border-color:rgba(239,91,125,.35);
+  animation: hourglassFlip 1.15s ease-in-out infinite;
+  background:rgba(177,124,255,.14);
+  border-color:rgba(177,124,255,.32);
+}
+.micro-hourglass.active span{
+  animation: sandFlow .8s linear infinite;
+}
+.micro-hourglass.expired{
+  background:rgba(239,91,125,.16);
+  border-color:rgba(239,91,125,.45);
 }
 .timeout-banner{
   margin:0 0 12px;
@@ -1158,6 +1195,11 @@ div[style*="grid-template-columns: repeat(2"]{
   0%{transform:rotate(0deg) scale(1)}
   45%{transform:rotate(180deg) scale(1.08)}
   100%{transform:rotate(360deg) scale(1)}
+}
+@keyframes sandFlow{
+  0%{opacity:.25; transform:scaleY(.35)}
+  50%{opacity:1; transform:scaleY(1)}
+  100%{opacity:.25; transform:scaleY(.35)}
 }
 @keyframes timeoutPulse{
   0%,100%{box-shadow:0 0 0 rgba(239,91,125,0)}
@@ -2989,7 +3031,7 @@ function resolveImageUrl(item) {
   if (custom) return custom;
   if (String(item?.preview_url || '').trim()) return item.preview_url;
   if (item?.type === 'scheme' || item?.labels) return schemeSvg(item);
-  return microSvg(item?.name || item?.title || 'В разработке', item?.stain || '', item?.id || 'placeholder');
+  return microSvg(item?.name || item?.title || 'Материал', item?.stain || '', item?.id || 'placeholder');
 }
 
 /* =========================================================
@@ -3619,7 +3661,7 @@ function cardTagByState(type, colloqId) {
   const percent = total ? Math.round(learned / total * 100) : 0;
   if (type === 'micro') return {cls: percent === 100 ? 'good' : 'warn', text: `${learned}/${total} (${percent}%)`};
   if (db[colloqId][type === 'scheme' ? 'schemes' : type].length) return {cls: 'dev', text: `${db[colloqId][type === 'scheme' ? 'schemes' : type].length} заданий`};
-  return {cls:'dev', text:'В разработке'};
+  return {cls:'dev', text:'Материал'};
 }
 async function startTraining(kind, colloqId) {
   if (!(await checkCurrentUserAccess())) return;
@@ -4455,10 +4497,10 @@ function buildExamTicket() {
     return out;
   };
   const dummy = {
-    micro: i => ({id:`dummy_micro_${i}`, type:'micro', name:'В разработке', stain:'В разработке', image_url: microSvg('В разработке', 'Заполните массив microscopy', 'dummy'+i), colloqId:'dummy'}),
-    scheme: i => ({id:`dummy_scheme_${i}`, type:'scheme', title:'В разработке', labels:{'1':'...', '2':'...'}, image_url: schemeSvg({id:`dummy_scheme_${i}`, title:'В разработке', labels:{'1':'...','2':'...'}}), colloqId:'dummy'}),
-    theory: i => ({id:`dummy_theory_${i}`, type:'theory', question:'В разработке', answerVariants:['В разработке'], colloqId:'dummy'}),
-    task: i => ({id:`dummy_task_${i}`, type:'task', question:'В разработке', answer:'В разработке', answerVariants:['В разработке'], colloqId:'dummy'}),
+    micro: i => ({id:`dummy_micro_${i}`, type:'micro', name:'Материал', stain:'Окраска не указана', image_url: microSvg('Материал', 'Заполните массив microscopy', 'dummy'+i), colloqId:'dummy'}),
+    scheme: i => ({id:`dummy_scheme_${i}`, type:'scheme', title:'Материал', labels:{'1':'...', '2':'...'}, image_url: schemeSvg({id:`dummy_scheme_${i}`, title:'Материал', labels:{'1':'...','2':'...'}}), colloqId:'dummy'}),
+    theory: i => ({id:`dummy_theory_${i}`, type:'theory', question:'Материал', answerVariants:['Материал'], colloqId:'dummy'}),
+    task: i => ({id:`dummy_task_${i}`, type:'task', question:'Материал', answer:'Материал', answerVariants:['Материал'], colloqId:'dummy'}),
   };
   const ticket = [
     ...take(pool.micro, 2, dummy.micro),
@@ -5024,10 +5066,10 @@ function renderTraining() {
     right = `
       <div class="micro-timer-card ${tr.microTimedOut ? 'timeout' : ''}">
         <div class="micro-timer-title">
-          <div id="microHourglass" class="micro-hourglass ${tr.microTimedOut ? 'active' : ''}">⌛</div>
+          <div id="microHourglass" class="micro-hourglass active ${tr.microTimedOut ? 'expired' : ''}" aria-label="Таймер"><span></span></div>
           <div>
             <strong>Таймер определения</strong>
-            <span>норма: 40 сек</span>
+            <span>песочные часы идут сразу, лимит 40 сек</span>
           </div>
         </div>
         <div class="micro-timer-values">
@@ -5542,7 +5584,10 @@ function updateMicroTimerDisplay() {
   leftEl.textContent = left > 0 ? `осталось ${left} сек` : 'время вышло';
   spentEl.textContent = `идёт ${elapsed} сек`;
   leftEl.classList.toggle('timer-bad', elapsed >= 40);
-  if (hourglassEl) hourglassEl.classList.toggle('active', elapsed >= 40 || !!tr.microTimedOut);
+  if (hourglassEl) {
+    hourglassEl.classList.add('active');
+    hourglassEl.classList.toggle('expired', elapsed >= 40 || !!tr.microTimedOut);
+  }
 
   if (elapsed >= 40 && !tr.awaitingGrade && !tr.microTimedOut) {
     autoFailMicroByTimeout();

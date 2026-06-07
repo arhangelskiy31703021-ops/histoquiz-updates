@@ -2484,7 +2484,7 @@ async function loadDbFromSupabase() {
         stain: p.stain || "",
         image_url: p.image_url || "",
         description: p.description || "",
-        variants: variantsByPrep[p.id] || []
+        variants: []
       });
     });
 
@@ -2940,25 +2940,14 @@ function initDbImages() {
 initDbImages();
 
 function expandMicroVariants(items) {
-  return items.flatMap(item => {
-    const base = {...item};
-    const variants = Array.isArray(item.variants) ? item.variants : [];
-    const baseItem = {...base, variantIndex: 1, variantTitle: base.variantTitle || 'Вариант 1'};
-    const extra = variants.map((variant, idx) => ({
-      ...base,
-      ...variant,
-      id: variant.id || `${base.id}_v${idx + 2}`,
-      baseId: base.id,
-      type: 'micro',
-      name: variant.name || base.name,
-      stain: variant.stain || base.stain,
-      title: variant.title || base.title || base.name,
-      description: base.description || '',
-      variantIndex: idx + 2,
-      variantTitle: variant.variantTitle || `Вариант ${idx + 2}`
-    }));
-    return [baseItem, ...extra];
-  });
+  // В проекте для каждого препарата должен быть только один вариант изображения.
+  // Поэтому таблица preparation_variants полностью игнорируется в тренировке, банке и итоговом тестировании.
+  return (items || []).map(item => ({
+    ...item,
+    baseId: item.id,
+    variantIndex: 1,
+    variantTitle: 'Вариант 1'
+  }));
 }
 function itemsForTraining(kind, colloqId) {
   const raw = db[colloqId][kind === 'micro' ? 'microscopy' : kind === 'scheme' ? 'schemes' : kind === 'theory' ? 'theory' : 'tasks'] || [];
@@ -4526,20 +4515,8 @@ function openSettings() {
 
 function getMicroVariants(item) {
   if (!item) return [];
-  const base = {...item, variantIndex: 1, variantTitle: 'Вариант 1', baseId: item.id, description: item.description || ''};
-  const extra = Array.isArray(item.variants) ? item.variants.map((variant, idx) => ({
-    ...item,
-    ...variant,
-    id: variant.id || `${item.id}_v${idx + 2}`,
-    baseId: item.id,
-    type: 'micro',
-    name: item.name,
-    stain: item.stain,
-    description: item.description || '',
-    variantIndex: idx + 2,
-    variantTitle: variant.variantTitle || `Вариант ${idx + 2}`
-  })) : [];
-  return [base, ...extra].slice(0, 2);
+  // Только один вариант изображения на препарат.
+  return [{...item, variantIndex: 1, variantTitle: 'Вариант 1', baseId: item.id, description: item.description || ''}];
 }
 function findMicroBaseById(id) {
   return allMicroBase().find(item => item.id === id || (Array.isArray(item.variants) && item.variants.some(v => v.id === id))) || null;
@@ -4557,7 +4534,7 @@ function openBankItem(id, selectedIndex = 0) {
       <div class="prompt">
         <h3>${safeText(item.name)}</h3>
         <p><strong>Коллоквиум:</strong> ${safeText(item.colloqNum || item.colloq || '—')} · <strong>Окраска:</strong> ${safeText(item.stain || '—')}</p>
-        <p style="margin-top:8px">Прокрути вниз: сначала идёт 1 вариант почти на всё окно, затем 2 вариант, затем отдельный широкий блок с описанием.</p>
+        <p style="margin-top:8px">Прокрути вниз: сначала идёт изображение препарата, затем отдельный широкий блок с описанием.</p>
       </div>
 
       ${variants.map((v, idx) => `
@@ -4783,7 +4760,7 @@ function renderDashboard() {
   const subtitle = state.section === 'microscopy'
     ? 'Выберите нарешку или итоговое тестирование по препаратам. В итоговом режиме каждый препарат показывается один раз.'
     : state.section === 'mcq'
-      ? 'Выберите тему тестирования. Здесь будут сложные вопросы с вариантами ответов. Экзамен при этом остаётся независимым.'
+      ? 'Выберите тему тестирования. Здесь будут сложные вопросы с одним изображением ответов. Экзамен при этом остаётся независимым.'
       : 'Выберите блок темы. Экзаменационный режим не зависит от этих блоков и работает по старой логике.';
 
   return `

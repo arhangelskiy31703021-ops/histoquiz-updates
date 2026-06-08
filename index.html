@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>HistoQuiz Pro Vundervaflia</title>
-  <script type="text/javascript" src="https://gc.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=WKsLvoJeIt7BWpBPMWBu9woeN88crWfisy6IOs4jgoldbDozDKq2uW5p0mLD4s4sYLCua03Sky6d4-XVELjHJwnwwcsefdFQDAeFvu1VQWxssJY7HyFMViga_JDY01B7jdH3hq5EI6qHdiBrgEt6xTkPPS5GAwfhWitRI3XfdxCtvHWGWD3ViNnrjnoc2TfZu4Es4cFPEbICh_lBaK5IqWgzTyhkUuf26wvXr7O9-ZtSFzy33ZoOn2h34AjV17dFblMay0l-FzrEqDtQsFX9IMTteXUI7cQ7flE4LBL1i0VcF3i7lX1sLUCmHhVXVef3CyP4Up3nl0bfuqJXgGNvSA" charset="UTF-8"></script><style>
+  <style>
     :root{
       --bg:#120a1e;
       --bg2:#1a102a;
@@ -1273,6 +1273,82 @@ div[style*="grid-template-columns: repeat(2"]{
 @keyframes chartExpired{
   0%,100%{transform:scale(1); filter:saturate(1)}
   50%{transform:scale(1.08); filter:saturate(1.45)}
+}
+
+
+/* === Кровь: диффероны по 2 линии === */
+.dual-board{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));
+  gap:12px;
+  margin:14px 0;
+}
+.dual-column{
+  min-height:180px;
+  border-radius:18px;
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(255,255,255,.035);
+  overflow:hidden;
+}
+.dual-column.source{
+  background:rgba(177,124,255,.055);
+  border-color:rgba(177,124,255,.20);
+}
+.dual-dropzone{
+  min-height:130px;
+  padding:10px;
+  display:grid;
+  align-content:start;
+  gap:8px;
+}
+.dual-dropzone.empty{place-items:center}
+.dual-card{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:8px;
+  align-items:center;
+  padding:10px 12px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(255,255,255,.06);
+  cursor:grab;
+  animation: bloodCardIn .18s ease-out both;
+}
+.dual-card b{font-size:14px;line-height:1.32}
+.dual-card-actions{display:flex;gap:5px;align-items:center}
+.dual-card.correct{
+  border-color:rgba(78,214,168,.65);
+  background:rgba(78,214,168,.12);
+  animation: greenWave .8s ease-out both;
+}
+.dual-card.semi{
+  border-color:rgba(255,207,90,.72);
+  background:rgba(255,207,90,.12);
+}
+.dual-card.wrong{
+  border-color:rgba(239,91,125,.65);
+  background:rgba(239,91,125,.12);
+  animation: shakeWrong .28s ease-in-out both;
+}
+@keyframes bloodCardIn{
+  from{opacity:0; transform:translateY(8px) scale(.98)}
+  to{opacity:1; transform:translateY(0) scale(1)}
+}
+@keyframes greenWave{
+  0%{box-shadow:inset 0 0 0 0 rgba(78,214,168,.0)}
+  40%{box-shadow:inset 360px 0 0 0 rgba(78,214,168,.13)}
+  100%{box-shadow:inset 0 0 0 0 rgba(78,214,168,.0)}
+}
+@keyframes shakeWrong{
+  0%,100%{transform:translateX(0)}
+  25%{transform:translateX(-4px)}
+  50%{transform:translateX(4px)}
+  75%{transform:translateX(-3px)}
+}
+@media (max-width:760px){
+  .dual-board{grid-template-columns:1fr}
+  .dual-card{grid-template-columns:1fr}
+  .dual-card-actions{justify-content:flex-start}
 }
 
 </style>
@@ -3873,6 +3949,21 @@ function prepareMcqItemForRun(item) {
   const sourceOptions = Array.isArray(item?.options) ? item.options : [];
   const taskData = taskDataOf(item);
 
+  if (qType === 'dual_order_groups') {
+    const groups = Array.isArray(taskData.groups) ? taskData.groups : [];
+    const cards = Array.isArray(taskData.cards) ? taskData.cards : sourceOptions.map((text, idx) => ({ id: String(idx), text }));
+    return {
+      ...item,
+      question_type: qType,
+      task_data: {
+        ...taskData,
+        groups,
+        cards: shuffle(cards.map(c => ({...c}))),
+        correctOrders: taskData.correctOrders || taskData.correct_orders || {}
+      }
+    };
+  }
+
   if (qType === 'drag_to_groups') {
     const groups = Array.isArray(taskData.groups) ? taskData.groups : [];
     const cards = Array.isArray(taskData.cards) ? taskData.cards : sourceOptions.map((text, idx) => ({ id: String(idx), text }));
@@ -3933,6 +4024,7 @@ async function startTopicTest(topicBlock, mode = 'exam') {
     answers: [],
     selected: [],
     groupAnswers: {},
+    dualAnswers: {},
     checked: false,
     finished: false,
     attempts: 0,
@@ -4074,6 +4166,18 @@ function checkMcqAnswer() {
     selectedPayload = {...(test.groupAnswers || {})};
     correctPayload = taskDataOf(cur).correctGroups || taskDataOf(cur).correct_groups || {};
     correctText = res.correctText;
+  } else if (qType === 'dual_order_groups') {
+    const {groups, cards} = dualDataOf(cur);
+    const assigned = new Set(Object.values(test.dualAnswers || {}).flatMap(arr => arr || []));
+    if (cards.some(card => !assigned.has(card.id))) {
+      alert('Сначала распределите все стадии по двум дифферонам.');
+      return;
+    }
+    const res = evaluateDualOrderAnswer(cur, test.dualAnswers || {});
+    ok = res.ok;
+    selectedPayload = {...(test.dualAnswers || {})};
+    correctPayload = dualDataOf(cur).correctOrders || {};
+    correctText = res.correctText;
   } else if (qType === 'definition_order') {
     const order = selectedOrderForCurrent();
     const correctIndexes = correctIndexesForMcq(cur);
@@ -4118,6 +4222,7 @@ function resetMcqAttemptState() {
   if (!state.mcqTest) return;
   state.mcqTest.selected = [];
   state.mcqTest.groupAnswers = {};
+  state.mcqTest.dualAnswers = {};
   state.mcqTest.checked = false;
 }
 
@@ -4140,6 +4245,148 @@ function finishMcqTest() {
   render();
 }
 
+
+function dualDataOf(cur) {
+  const data = taskDataOf(cur);
+  return {
+    groups: Array.isArray(data.groups) ? data.groups : [],
+    cards: Array.isArray(data.cards) ? data.cards : [],
+    correctOrders: data.correctOrders || data.correct_orders || {}
+  };
+}
+function dualAssignedIds() {
+  const ans = state.mcqTest?.dualAnswers || {};
+  return new Set(Object.values(ans).flatMap(arr => Array.isArray(arr) ? arr : []));
+}
+function dualCardById(cur, id) {
+  return (dualDataOf(cur).cards || []).find(c => c.id === id);
+}
+function handleDualCardDragStart(event, encodedCardId) {
+  if (state.mcqTest?.checked) return;
+  event.dataTransfer.setData('text/plain', encodedCardId);
+  event.dataTransfer.effectAllowed = 'move';
+}
+function allowDualDrop(event) {
+  if (state.mcqTest?.checked) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+}
+function removeDualCardFromAll(cardId) {
+  const test = state.mcqTest;
+  if (!test) return;
+  const next = {...(test.dualAnswers || {})};
+  Object.keys(next).forEach(gid => {
+    next[gid] = (next[gid] || []).filter(id => id !== cardId);
+  });
+  test.dualAnswers = next;
+}
+function handleDualDrop(event, encodedGroupId) {
+  if (state.mcqTest?.checked) return;
+  event.preventDefault();
+  const encodedCardId = event.dataTransfer.getData('text/plain');
+  if (!encodedCardId) return;
+  const cardId = decodeURIComponent(encodedCardId);
+  const groupId = encodedGroupId ? decodeURIComponent(encodedGroupId) : '';
+  removeDualCardFromAll(cardId);
+  if (groupId) {
+    const next = {...(state.mcqTest.dualAnswers || {})};
+    next[groupId] = [...(next[groupId] || []), cardId];
+    state.mcqTest.dualAnswers = next;
+  }
+  render();
+}
+function moveDualCard(groupId, index, delta) {
+  const test = state.mcqTest;
+  if (!test || test.checked) return;
+  const next = {...(test.dualAnswers || {})};
+  const arr = [...(next[groupId] || [])];
+  const target = index + delta;
+  if (target < 0 || target >= arr.length) return;
+  const tmp = arr[index];
+  arr[index] = arr[target];
+  arr[target] = tmp;
+  next[groupId] = arr;
+  test.dualAnswers = next;
+  render();
+}
+function expectedDualGroup(cur, cardId) {
+  const {correctOrders} = dualDataOf(cur);
+  for (const [gid, ids] of Object.entries(correctOrders)) {
+    if ((ids || []).includes(cardId)) return gid;
+  }
+  return '';
+}
+function expectedDualPosition(cur, cardId) {
+  const {correctOrders} = dualDataOf(cur);
+  for (const ids of Object.values(correctOrders)) {
+    const idx = (ids || []).indexOf(cardId);
+    if (idx >= 0) return idx;
+  }
+  return -1;
+}
+function renderDualCard(cur, cardId, groupId, idx, checked) {
+  const card = dualCardById(cur, cardId);
+  if (!card) return '';
+  const expectedGroup = expectedDualGroup(cur, cardId);
+  const expectedPos = expectedDualPosition(cur, cardId);
+  const groupOk = checked && groupId === expectedGroup;
+  const posOk = checked && groupOk && idx === expectedPos;
+  const groupWrong = checked && groupId && groupId !== expectedGroup;
+  const posWrong = checked && groupOk && idx !== expectedPos;
+  const cls = posOk ? 'correct' : groupWrong ? 'wrong' : posWrong ? 'semi' : '';
+  return `
+    <div class="dual-card ${cls}" draggable="${checked ? 'false' : 'true'}" ondragstart="handleDualCardDragStart(event, '${encodeURIComponent(cardId)}')">
+      <b>${safeText(card.text)}</b>
+      ${groupId && !checked ? `
+        <div class="dual-card-actions">
+          <button type="button" class="ghost small-btn" onclick="moveDualCard('${safeText(groupId)}', ${idx}, -1)">↑</button>
+          <button type="button" class="ghost small-btn" onclick="moveDualCard('${safeText(groupId)}', ${idx}, 1)">↓</button>
+          <button type="button" class="ghost small-btn" onclick="removeDualCardFromAll('${safeText(cardId)}'); render();">×</button>
+        </div>` : ''}
+    </div>
+  `;
+}
+function renderDualOrderGroupsQuestion(cur) {
+  const {groups, cards} = dualDataOf(cur);
+  const checked = state.mcqTest?.checked;
+  const answers = state.mcqTest?.dualAnswers || {};
+  const assigned = dualAssignedIds();
+  const unassigned = cards.filter(c => !assigned.has(c.id));
+  return `
+    <p class="tiny" style="margin-top:6px">Распредели карточки между двумя дифферонами и расставь порядок стрелками ↑ ↓.</p>
+    <div class="dual-board">
+      <div class="dual-column source" ondragover="allowDualDrop(event)" ondrop="handleDualDrop(event, '')">
+        <div class="group-column-head"><strong>Карточки</strong><span>${unassigned.length}</span></div>
+        <div class="dual-dropzone ${unassigned.length ? '' : 'empty'}">
+          ${unassigned.length ? unassigned.map(c => renderDualCard(cur, c.id, '', -1, checked)).join('') : '<div class="drop-hint">Все карточки распределены</div>'}
+        </div>
+      </div>
+      ${groups.map(g => {
+        const ids = answers[g.id] || [];
+        return `
+          <div class="dual-column" ondragover="allowDualDrop(event)" ondrop="handleDualDrop(event, '${encodeURIComponent(g.id)}')">
+            <div class="group-column-head"><strong>${safeText(g.title)}</strong><span>${ids.length}</span></div>
+            <div class="dual-dropzone ${ids.length ? '' : 'empty'}">
+              ${ids.length ? ids.map((id, idx) => renderDualCard(cur, id, g.id, idx, checked)).join('') : '<div class="drop-hint">Перетащите стадии сюда</div>'}
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+function evaluateDualOrderAnswer(cur, answers) {
+  const {groups, correctOrders} = dualDataOf(cur);
+  const ok = groups.every(g => {
+    const user = answers?.[g.id] || [];
+    const correct = correctOrders?.[g.id] || [];
+    return user.length === correct.length && user.every((id, idx) => id === correct[idx]);
+  });
+  const correctText = groups.map(g => `${g.title}: ${(correctOrders?.[g.id] || []).map(id => dualCardById(cur, id)?.text || id).join(' → ')}`).join('; ');
+  return {ok, correctText};
+}
+
+
 function userAnswerText(item, answer) {
   const qType = answer?.questionType || questionTypeOf(item);
   if (qType === 'drag_to_groups') {
@@ -4153,6 +4400,12 @@ function userAnswerText(item, answer) {
   if (qType === 'definition_order') {
     return Array.isArray(answer?.selected) ? answer.selected.map(i => item.options?.[i] || '').join(' ') : '—';
   }
+  if (qType === 'dual_order_groups') {
+    const data = taskDataOf(item);
+    const groups = data.groups || [];
+    const cards = data.cards || [];
+    return groups.map(g => `${g.title}: ${(answer?.selected?.[g.id] || []).map(id => (cards.find(c => c.id === id)?.text || id)).join(' → ') || '—'}`).join('; ');
+  }
   return Array.isArray(answer?.selected) && answer.selected.length
     ? answer.selected.map(i => item.options?.[i] ?? '').filter(Boolean).join('; ')
     : '—';
@@ -4165,6 +4418,7 @@ function correctAnswerText(item, answer) {
     const correct = Array.isArray(answer?.correctIndexes) ? answer.correctIndexes : correctIndexesForMcq(item);
     return correct.map(i => item.options?.[i] || '').join(' ') || item.correct_answer || '—';
   }
+  if (qType === 'dual_order_groups') return answer?.correctText || evaluateDualOrderAnswer(item, {}).correctText || item.correct_answer || '—';
   const correctArr = Array.isArray(answer?.correctIndexes) && answer.correctIndexes.length ? answer.correctIndexes : correctIndexesForMcq(item);
   return correctArr.map(i => item.options?.[i] ?? '').filter(Boolean).join('; ') || item.correct_answer || '—';
 }
@@ -4289,6 +4543,7 @@ function renderChoiceQuestion(cur, selected, correctIndexes, checked) {
 function renderMcqBody(cur, selected, correctIndexes, checked) {
   const qType = questionTypeOf(cur);
   if (qType === 'definition_order') return renderOrderQuestion(cur, selected, correctIndexes, checked);
+  if (qType === 'dual_order_groups') return renderDualOrderGroupsQuestion(cur);
   if (qType === 'drag_to_groups') return renderDragToGroupsQuestion(cur);
   return renderChoiceQuestion(cur, selected, correctIndexes, checked);
 }
@@ -4910,6 +5165,37 @@ function renderLogin() {
     </div>
   `;
 }
+
+const BLOOD_TOPIC_BLOCK = "Кровь, гемопоэз, органы кроветворения и иммунная система";
+
+function bloodTestCount() {
+  return itemsForTopicTraining('mcq', BLOOD_TOPIC_BLOCK).length;
+}
+
+function renderBloodCards() {
+  const total = bloodTestCount();
+  return `
+    <div class="card prep-test-card">
+      <div class="card-top">
+        <div>
+          <h4>Кровь</h4>
+          <p>Лейкоцитарная формула, нормы форменных элементов, гранулы гранулоцитов и тромбоцитов, виды тромбов, диффероны по 2 линии, белки и антигены эритроцита.</p>
+        </div>
+        <span class="badge dev">${total} заданий</span>
+      </div>
+      <div class="meta">
+        <span>Источник: твой блок по крови</span>
+        <span>нарешка / тест</span>
+      </div>
+      <div class="inline-actions" style="margin-top:12px">
+        <button class="primary" type="button" onclick="event.stopPropagation(); startTopicTest(BLOOD_TOPIC_BLOCK, 'drill')">Нарешка</button>
+        <button class="ghost" type="button" onclick="event.stopPropagation(); startTopicTest(BLOOD_TOPIC_BLOCK, 'exam')">Тестирование</button>
+      </div>
+    </div>
+  `;
+}
+
+
 function renderDashboard() {
   document.getElementById('bottomNav').style.display = 'block';
   const userName = state.user?.fullName || '';
@@ -4922,6 +5208,7 @@ function renderDashboard() {
     tasks: 'Блоки тем (Задачи)',
     schemes: 'Блоки тем (Схемы)',
     mcq: 'Тестирование по сложным вопросам',
+    blood: 'Кровь',
   };
   const sectionTitles = {
     microscopy: 'Микропрепараты',
@@ -4929,8 +5216,9 @@ function renderDashboard() {
     tasks: 'Ситуационные задачи',
     schemes: 'Структурные схемы',
     mcq: 'Тесты с выбором ответа',
+    blood: 'Лейкоцитарная формула, гранулы, тромбы, диффероны',
   };
-  const keyMap = {microscopy:'microscopy', theory:'theory', tasks:'tasks', schemes:'schemes', mcq:'mcq'};
+  const keyMap = {microscopy:'microscopy', theory:'theory', tasks:'tasks', schemes:'schemes', mcq:'mcq', blood:'blood'};
 
   let cards = '';
   if (state.section === 'microscopy') {
@@ -4986,6 +5274,8 @@ function renderDashboard() {
         </div>
       `;
     }).join('');
+  } else if (state.section === 'blood') {
+    cards = renderBloodCards();
   } else {
     const kind = state.section === 'theory' ? 'theory' : state.section === 'tasks' ? 'task' : state.section === 'mcq' ? 'mcq' : 'scheme';
     cards = renderTopicBlockCards(kind);
@@ -5038,6 +5328,7 @@ function renderDashboard() {
         <button class="tab ${state.section==='tasks'?'active':''}" onclick="setSection('tasks')">Задачи</button>
         <button class="tab ${state.section==='schemes'?'active':''}" onclick="setSection('schemes')">Схемы</button>
         <button class="tab ${state.section==='mcq'?'active':''}" onclick="setSection('mcq')">Тестирование</button>
+        <button class="tab ${state.section==='blood'?'active':''}" onclick="setSection('blood')">Кровь</button>
       </div>
 
       <div class="section-head">

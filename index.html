@@ -3134,7 +3134,7 @@ function renderTopicBlockCards(kind) {
       ? `startTopicTest(decodeURIComponent('${encodeURIComponent(block)}'), 'exam')`
       : `startTopicTraining('${actionKind}', decodeURIComponent('${encodeURIComponent(block)}'))`;
     const description = actionKind === 'mcq'
-      ? 'Тестирование по сложным вопросам с выбором ответа. Есть обычный тест и режим нарешки.'
+      ? 'Нарешка по крови с выбором ответа. Есть обычный тест и режим нарешки.'
       : 'Блок темы для теоретических вопросов, задач или схем. Экзамен при этом остаётся независимым.';
     return `
       <div class="card clickable" onclick="${action}">
@@ -4010,6 +4010,7 @@ function prepareMcqItemForRun(item) {
 
 async function startTopicTest(topicBlock, mode = 'exam') {
   if (!(await checkCurrentUserAccess())) return;
+  if (topicBlock === BLOOD_TOPIC_BLOCK) mode = 'drill';
   const source = itemsForTopicTraining('mcq', topicBlock);
   if (!source || !source.length) {
     alert('В этом блоке пока нет тестовых вопросов. Добавь их в таблицу test_questions.');
@@ -5179,17 +5180,16 @@ function renderBloodCards() {
       <div class="card-top">
         <div>
           <h4>Кровь</h4>
-          <p>Лейкоцитарная формула, нормы форменных элементов, гранулы гранулоцитов и тромбоцитов, виды тромбов, диффероны по 2 линии, белки и антигены эритроцита.</p>
+          <p>Нарешка по крови: лейкоцитарная формула, нормы форменных элементов, гранулы, тромбы, диффероны по 2 линии, белки и антигены эритроцита.</p>
         </div>
         <span class="badge dev">${total} заданий</span>
       </div>
       <div class="meta">
         <span>Источник: твой блок по крови</span>
-        <span>нарешка / тест</span>
+        <span>только нарешка</span>
       </div>
       <div class="inline-actions" style="margin-top:12px">
-        <button class="primary" type="button" onclick="event.stopPropagation(); startTopicTest(BLOOD_TOPIC_BLOCK, 'drill')">Нарешка</button>
-        <button class="ghost" type="button" onclick="event.stopPropagation(); startTopicTest(BLOOD_TOPIC_BLOCK, 'exam')">Тестирование</button>
+        <button class="primary" type="button" onclick="event.stopPropagation(); startTopicTest(BLOOD_TOPIC_BLOCK, 'drill')">Нарешка по крови</button>
       </div>
     </div>
   `;
@@ -5202,12 +5202,12 @@ function renderDashboard() {
   const stats = state.progress || {score:0, streak:0, learnedIds:[]};
   const learned = overallLearnedCount();
   const total = overallTotalCount();
+  if (state.section === 'mcq') state.section = 'blood';
   const sections = {
     microscopy: 'Препараты',
     theory: 'Блоки тем (Теоретические вопросы)',
     tasks: 'Блоки тем (Задачи)',
     schemes: 'Блоки тем (Схемы)',
-    mcq: 'Тестирование по сложным вопросам',
     blood: 'Кровь',
   };
   const sectionTitles = {
@@ -5215,10 +5215,9 @@ function renderDashboard() {
     theory: 'Теоретические вопросы',
     tasks: 'Ситуационные задачи',
     schemes: 'Структурные схемы',
-    mcq: 'Тесты с выбором ответа',
-    blood: 'Лейкоцитарная формула, гранулы, тромбы, диффероны',
+    blood: 'Только нарешка по крови',
   };
-  const keyMap = {microscopy:'microscopy', theory:'theory', tasks:'tasks', schemes:'schemes', mcq:'mcq', blood:'blood'};
+  const keyMap = {microscopy:'microscopy', theory:'theory', tasks:'tasks', schemes:'schemes', blood:'blood'};
 
   let cards = '';
   if (state.section === 'microscopy') {
@@ -5277,7 +5276,7 @@ function renderDashboard() {
   } else if (state.section === 'blood') {
     cards = renderBloodCards();
   } else {
-    const kind = state.section === 'theory' ? 'theory' : state.section === 'tasks' ? 'task' : state.section === 'mcq' ? 'mcq' : 'scheme';
+    const kind = state.section === 'theory' ? 'theory' : state.section === 'tasks' ? 'task' : 'scheme';
     cards = renderTopicBlockCards(kind);
   }
 
@@ -5327,7 +5326,6 @@ function renderDashboard() {
         <button class="tab ${state.section==='theory'?'active':''}" onclick="setSection('theory')">Теоретические вопросы</button>
         <button class="tab ${state.section==='tasks'?'active':''}" onclick="setSection('tasks')">Задачи</button>
         <button class="tab ${state.section==='schemes'?'active':''}" onclick="setSection('schemes')">Схемы</button>
-        <button class="tab ${state.section==='mcq'?'active':''}" onclick="setSection('mcq')">Тестирование</button>
         <button class="tab ${state.section==='blood'?'active':''}" onclick="setSection('blood')">Кровь</button>
       </div>
 
